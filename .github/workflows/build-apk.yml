@@ -15,71 +15,74 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      # ─── 2. Setup Node.js ────────────────────────────────────────
+      # ─── 2. Setup Node.js (no cache — no lock file in repo) ──────
       - name: 🟢 Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache: 'npm' removed — requires package-lock.json
 
-      # ─── 3. Setup Java (required for Android) ────────────────────
+      # ─── 3. Setup Java (required for Android build) ──────────────
       - name: ☕ Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
 
-      # ─── 4. Install Expo CLI & EAS CLI ───────────────────────────
-      - name: 🛠️ Install Expo & EAS CLI
+      # ─── 4. Install EAS CLI ──────────────────────────────────────
+      - name: 🛠️ Install EAS CLI
         run: |
-          npm install -g @expo/eas-cli expo-cli
+          npm install -g @expo/eas-cli
           echo "EAS CLI version: $(eas --version)"
 
       # ─── 5. Install project dependencies ─────────────────────────
       - name: 📦 Install dependencies
-        run: npm install
+        run: npm install --legacy-peer-deps
 
-      # ─── 6. Login to Expo ────────────────────────────────────────
-      - name: 🔑 Login to Expo
-        run: |
-          npx expo login --username ${{ secrets.EXPO_USERNAME }} --password ${{ secrets.EXPO_PASSWORD }}
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-
-      # ─── 7. Build APK using EAS ──────────────────────────────────
+      # ─── 6. Build APK using EAS (cloud build) ────────────────────
       - name: 🏗️ Build APK with EAS
         run: |
           eas build --platform android --profile production --non-interactive
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      # ─── 8. Download the built APK ───────────────────────────────
+      # ─── 7. Download the built APK from EAS ──────────────────────
       - name: 📲 Download APK from EAS
         run: |
-          # Get the latest build URL from EAS
-          BUILD_URL=$(eas build:list --platform android --status finished --limit 1 --json | python3 -c "import sys, json; data=json.load(sys.stdin); print(data[0]['artifacts']['buildUrl'])" 2>/dev/null || echo "")
-          
+          BUILD_URL=$(eas build:list \
+            --platform android \
+            --status finished \
+            --limit 1 \
+            --json \
+            --non-interactive \
+            2>/dev/null \
+            | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+url = data[0].get('artifacts', {}).get('buildUrl', '')
+print(url)
+" 2>/dev/null || echo "")
+
           if [ -n "$BUILD_URL" ]; then
             echo "APK URL: $BUILD_URL"
             curl -L "$BUILD_URL" -o flixify-release.apk
-            echo "✅ APK downloaded successfully"
+            echo "APK downloaded successfully"
           else
-            echo "⚠️ Could not get APK URL from EAS (check EAS dashboard manually)"
+            echo "Could not fetch APK URL — download from expo.dev/builds manually"
           fi
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
-      # ─── 9. Upload APK as GitHub Artifact ────────────────────────
-      - name: 📤 Upload APK as artifact
+      # ─── 8. Upload APK as GitHub Artifact ────────────────────────
+      - name: 📤 Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Flixify-APK-${{ github.sha }}
-          path: |
-            *.apk
+          path: "*.apk"
           retention-days: 30
           if-no-files-found: warn
 
-      # ─── 10. Create GitHub Release (on tag push) ─────────────────
+      # ─── 9. Create GitHub Release (only on version tags) ─────────
       - name: 🚀 Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
@@ -87,15 +90,8 @@ jobs:
           files: "*.apk"
           name: "Flixify ${{ github.ref_name }}"
           body: |
-            ## 🎬 Flixify App Release ${{ github.ref_name }}
-            
-            ### What's new:
-            - Latest movie database sync
-            - Performance improvements
-            
-            ### Download:
-            Download the APK below and install on your Android device.
-            
-            > **Note:** You may need to enable "Install from unknown sources" in your Android settings.
+            ## Flixify App ${{ github.ref_name }}
+            APK download করুন এবং Android-এ install করুন।
+            Install করতে "Unknown sources" চালু রাখুন।
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
