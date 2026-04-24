@@ -10,9 +10,6 @@
       "backgroundColor": "#030303"
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#030303"
-      },
       "package": "com.flixify.app",
       "versionCode": 1,
       "permissions": [
@@ -23,11 +20,6 @@
     "plugins": [
       "expo-splash-screen"
     ],
-    "scheme": "flixify",
-    "extra": {
-      "eas": {
-        "projectId": "b771a6b0-317c-47e6-a38b-6981eac7171b"
-      }
-    }
+    "scheme": "flixify"
   }
 }
