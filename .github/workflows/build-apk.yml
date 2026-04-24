@@ -25,43 +25,43 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Build APK with EAS
-        run: eas build --platform android --profile production --non-interactive
+      - name: Prebuild Android (generate native project)
+        run: npx expo prebuild --platform android --clean
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_BUILD_NO_EXPO_GO_WARNING: true
 
-      - name: Download APK from EAS
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Build Release APK
         run: |
-          BUILD_URL=$(eas build:list --platform android --status finished --limit 1 --json --non-interactive 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0].get('artifacts',{}).get('buildUrl',''))" 2>/dev/null || echo "")
-          if [ -n "$BUILD_URL" ]; then
-            curl -L "$BUILD_URL" -o flixify-release.apk
-            echo "APK downloaded: $BUILD_URL"
-          else
-            echo "APK URL not found - check expo.dev/builds manually"
-          fi
+          cd android
+          ./gradlew assembleRelease --no-daemon
         env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g"
+
+      - name: Find APK
+        run: find android -name "*.apk" -type f
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Flixify-APK-${{ github.sha }}
-          path: "*.apk"
+          path: android/app/build/outputs/apk/release/*.apk
           retention-days: 30
-          if-no-files-found: warn
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: "*.apk"
+          files: android/app/build/outputs/apk/release/*.apk
           name: "Flixify ${{ github.ref_name }}"
-          body: "APK download করুন এবং Android-এ install করুন। Install করতে Unknown sources চালু রাখুন।"
+          body: "APK download করুন এবং Android-এ install করুন।"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
