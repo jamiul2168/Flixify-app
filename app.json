@@ -4,16 +4,13 @@
     "slug": "flixify",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash.png",
       "resizeMode": "contain",
       "backgroundColor": "#030303"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#030303"
       },
       "package": "com.flixify.app",
@@ -29,7 +26,7 @@
     "scheme": "flixify",
     "extra": {
       "eas": {
-        "projectId": "your-eas-project-id"
+        "projectId": "b771a6b0-317c-47e6-a38b-6981eac7171b"
       }
     }
   }
