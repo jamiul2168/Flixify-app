@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useCallback } from 'react';
+import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
@@ -7,18 +8,16 @@ import HomeScreen from './src/screens/HomeScreen';
 SplashScreen.preventAutoHideAsync();
 
 export default function App() {
-  useEffect(() => {
-    // Hide splash after a short delay
-    const timer = setTimeout(() => {
-      SplashScreen.hideAsync();
-    }, 1500);
-    return () => clearTimeout(timer);
+  const onLayout = useCallback(async () => {
+    await SplashScreen.hideAsync();
   }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <HomeScreen />
+        <View style={{ flex: 1, backgroundColor: '#050508' }} onLayout={onLayout}>
+          <HomeScreen />
+        </View>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

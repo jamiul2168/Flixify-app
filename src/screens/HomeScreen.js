@@ -1,22 +1,16 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  ActivityIndicator,
-  ScrollView,
-  RefreshControl,
-  Dimensions,
-  Animated,
-  Image,
+  View, Text, FlatList, TextInput, TouchableOpacity,
+  StyleSheet, StatusBar, ActivityIndicator, ScrollView,
+  RefreshControl, Dimensions, Animated, Image,
 } from 'react-native';
-import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
-import { COLORS, MOVIES_PER_PAGE, TELEGRAM_URL, REQUEST_URL } from '../utils/constants';
+import {
+  COLORS, MOVIES_PER_PAGE, TELEGRAM_URL, REQUEST_URL,
+} from '../utils/constants';
 import { fetchMovies } from '../utils/api';
 import MovieCard from '../components/MovieCard';
 import MovieModal from '../components/MovieModal';
@@ -24,31 +18,32 @@ import MovieModal from '../components/MovieModal';
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
-  const [allMovies, setAllMovies] = useState([]);
-  const [filteredMovies, setFilteredMovies] = useState([]);
-  const [displayedMovies, setDisplayedMovies] = useState([]);
-  const [categories, setCategories] = useState(['All']);
-  const [activeCategory, setActiveCategory] = useState('all');
-  const [searchText, setSearchText] = useState('');
-  const [show18, setShow18] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
-  const [blocked, setBlocked] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
-  const [selectedMovie, setSelectedMovie] = useState(null);
-  const [modalVisible, setModalVisible] = useState(false);
-  const [searchSuggestions, setSearchSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const tickerAnim = useRef(new Animated.Value(width)).current;
+  const insets = useSafeAreaInsets();
 
-  // Ticker animation
+  const [allMovies,    setAllMovies]    = useState([]);
+  const [filtered,     setFiltered]     = useState([]);
+  const [displayed,    setDisplayed]    = useState([]);
+  const [categories,   setCategories]   = useState(['All']);
+  const [activeCat,    setActiveCat]    = useState('all');
+  const [search,       setSearch]       = useState('');
+  const [show18,       setShow18]       = useState(false);
+  const [loading,      setLoading]      = useState(true);
+  const [refreshing,   setRefreshing]   = useState(false);
+  const [error,        setError]        = useState(null);
+  const [page,         setPage]         = useState(1);
+  const [hasMore,      setHasMore]      = useState(false);
+  const [selMovie,     setSelMovie]     = useState(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [suggestions,  setSuggestions]  = useState([]);
+  const [showSugg,     setShowSugg]     = useState(false);
+
+  const tickX = useRef(new Animated.Value(width)).current;
+
   useEffect(() => {
     const loop = Animated.loop(
-      Animated.timing(tickerAnim, {
-        toValue: -width * 3,
-        duration: 18000,
+      Animated.timing(tickX, {
+        toValue: -width * 4,
+        duration: 22000,
         useNativeDriver: true,
       })
     );
@@ -56,19 +51,10 @@ export default function HomeScreen() {
     return () => loop.stop();
   }, []);
 
-  // Load movies
-  const loadMovies = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
       setError(null);
       const data = await fetchMovies();
-
-      if (data.domainBlocked) {
-        setBlocked(true);
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
-
       const movies = (data.movies || [])
         .filter(m => m.source === 'MovieDB')
         .map(m => ({
@@ -83,9 +69,8 @@ export default function HomeScreen() {
       movies.forEach(m => m.categories.forEach(c => cats.add(c)));
       setCategories(['All', ...Array.from(cats).sort()]);
 
-      const initial = movies.slice(0, MOVIES_PER_PAGE);
-      setFilteredMovies(movies);
-      setDisplayedMovies(initial);
+      setFiltered(movies);
+      setDisplayed(movies.slice(0, MOVIES_PER_PAGE));
       setHasMore(movies.length > MOVIES_PER_PAGE);
       setPage(1);
     } catch (e) {
@@ -96,147 +81,118 @@ export default function HomeScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    loadMovies();
-  }, []);
+  useEffect(() => { load(); }, []);
 
-  // Apply filters
   useEffect(() => {
     if (!allMovies.length) return;
-
-    let result = allMovies.filter(m => {
-      const matchSearch = m.name.toLowerCase().includes(searchText.toLowerCase());
-      const matchCat =
-        activeCategory === 'all' ||
-        m.categories.some(c => c.toLowerCase() === activeCategory.toLowerCase());
-      const matchBlur = !show18 ? true : m.isBlurred;
-      return matchSearch && matchCat && matchBlur;
+    const result = allMovies.filter(m => {
+      const s = m.name.toLowerCase().includes(search.toLowerCase());
+      const c = activeCat === 'all'
+        || m.categories.some(x => x.toLowerCase() === activeCat.toLowerCase());
+      const b = !show18 ? true : m.isBlurred;
+      return s && c && b;
     });
-
-    setFilteredMovies(result);
-    const initial = result.slice(0, MOVIES_PER_PAGE);
-    setDisplayedMovies(initial);
+    setFiltered(result);
+    setDisplayed(result.slice(0, MOVIES_PER_PAGE));
     setHasMore(result.length > MOVIES_PER_PAGE);
     setPage(1);
-  }, [searchText, activeCategory, show18, allMovies]);
+  }, [search, activeCat, show18, allMovies]);
 
-  // Search suggestions
   useEffect(() => {
-    if (searchText.length > 0) {
-      const sugg = allMovies
-        .filter(m => m.name.toLowerCase().includes(searchText.toLowerCase()))
-        .slice(0, 6);
-      setSearchSuggestions(sugg);
-      setShowSuggestions(true);
+    if (search.length > 0) {
+      setSuggestions(
+        allMovies
+          .filter(m => m.name.toLowerCase().includes(search.toLowerCase()))
+          .slice(0, 6)
+      );
+      setShowSugg(true);
     } else {
-      setShowSuggestions(false);
+      setShowSugg(false);
     }
-  }, [searchText, allMovies]);
+  }, [search, allMovies]);
 
   const loadMore = () => {
     if (!hasMore) return;
-    const nextPage = page + 1;
-    const more = filteredMovies.slice(0, nextPage * MOVIES_PER_PAGE);
-    setDisplayedMovies(more);
-    setHasMore(filteredMovies.length > more.length);
-    setPage(nextPage);
+    const np   = page + 1;
+    const more = filtered.slice(0, np * MOVIES_PER_PAGE);
+    setDisplayed(more);
+    setHasMore(filtered.length > more.length);
+    setPage(np);
   };
 
   const openModal = (movie) => {
-    setSelectedMovie(movie);
+    setSelMovie(movie);
     setModalVisible(true);
-    setShowSuggestions(false);
+    setShowSugg(false);
   };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    loadMovies();
-  };
-
-  // ====== RENDER STATES ======
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.center}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-        <ActivityIndicator size="large" color={COLORS.cyan} />
-        <Text style={styles.loadingText}>Loading Flixify...</Text>
-      </View>
-    );
-  }
-
-  if (blocked) {
-    return (
-      <View style={styles.blockedContainer}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-        <Ionicons name="lock-closed" size={60} color={COLORS.red} />
-        <Text style={styles.blockedTitle}>Access Denied</Text>
-        <Text style={styles.blockedText}>
-          এই ডোমেইনে সাইটটি চালানোর অনুমতি নেই।{'\n'}Developer এর সাথে যোগাযোগ করুন।
-        </Text>
-        <TouchableOpacity
-          style={styles.contactBtn}
-          onPress={() => WebBrowser.openBrowserAsync('https://web.facebook.com/jamiul2168')}
-        >
-          <Text style={styles.contactBtnText}>Contact Developer</Text>
-        </TouchableOpacity>
+        <Text style={styles.logoText}>Flixify</Text>
+        <ActivityIndicator size="large" color={COLORS.cyan} style={{ marginTop: 24 }} />
+        <Text style={styles.loadTxt}>Loading...</Text>
       </View>
     );
   }
 
   if (error) {
     return (
-      <View style={styles.blockedContainer}>
+      <View style={styles.center}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-        <Ionicons name="alert-circle" size={60} color={COLORS.red} />
-        <Text style={styles.blockedTitle}>Failed to Load</Text>
-        <Text style={styles.blockedText}>{error}</Text>
-        <TouchableOpacity style={styles.contactBtn} onPress={onRefresh}>
-          <Text style={styles.contactBtnText}>Retry</Text>
+        <Ionicons name="cloud-offline-outline" size={64} color={COLORS.red} />
+        <Text style={styles.errTitle}>Failed to Load</Text>
+        <Text style={styles.errSub}>{error}</Text>
+        <TouchableOpacity
+          style={styles.retryBtn}
+          onPress={() => { setLoading(true); load(); }}
+        >
+          <Text style={styles.retryTxt}>Retry</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
 
-      {/* ===== HEADER ===== */}
+      {/* HEADER */}
       <View style={styles.header}>
         <Text style={styles.logo}>Flixify</Text>
-        <View style={styles.searchWrapper}>
-          <Ionicons name="search" size={16} color={COLORS.cyan} style={{ marginRight: 8 }} />
+        <View style={styles.searchBox}>
+          <Ionicons name="search" size={15} color={COLORS.cyan} style={{ marginRight: 8 }} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search movies..."
-            placeholderTextColor="rgba(255,255,255,0.4)"
-            value={searchText}
-            onChangeText={setSearchText}
-            onFocus={() => searchText.length > 0 && setShowSuggestions(true)}
+            placeholder="Search movies & series..."
+            placeholderTextColor="rgba(255,255,255,0.3)"
+            value={search}
+            onChangeText={setSearch}
+            onFocus={() => search.length > 0 && setShowSugg(true)}
           />
-          {searchText.length > 0 && (
-            <TouchableOpacity onPress={() => { setSearchText(''); setShowSuggestions(false); }}>
-              <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.5)" />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => { setSearch(''); setShowSugg(false); }}>
+              <Ionicons name="close-circle" size={17} color="rgba(255,255,255,0.4)" />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* Search Suggestions */}
-      {showSuggestions && searchSuggestions.length > 0 && (
-        <View style={styles.suggestions}>
-          {searchSuggestions.map((m, i) => (
+      {/* SUGGESTIONS */}
+      {showSugg && suggestions.length > 0 && (
+        <View style={styles.suggBox}>
+          {suggestions.map((m, i) => (
             <TouchableOpacity
               key={i}
-              style={styles.suggestionItem}
-              onPress={() => { openModal(m); setSearchText(''); setShowSuggestions(false); }}
+              style={[styles.suggRow, i < suggestions.length - 1 && styles.suggBorder]}
+              onPress={() => { openModal(m); setSearch(''); setShowSugg(false); }}
             >
-              <Image source={{ uri: m.thumbnail }} style={styles.suggThumb} />
-              <View>
+              <Image source={{ uri: m.thumbnail }} style={styles.suggImg} />
+              <View style={{ flex: 1 }}>
                 <Text style={styles.suggName} numberOfLines={1}>{m.name}</Text>
-                <View style={styles.suggTypeBadge}>
-                  <Text style={styles.suggTypeText}>{m.type || 'Movie'}</Text>
+                <View style={styles.suggPill}>
+                  <Text style={styles.suggPillTxt}>{m.type || 'Movie'}</Text>
                 </View>
               </View>
             </TouchableOpacity>
@@ -244,41 +200,41 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* ===== TICKER ===== */}
+      {/* TICKER */}
       <View style={styles.ticker}>
-        <Animated.Text style={[styles.tickerText, { transform: [{ translateX: tickerAnim }] }]}>
-          🔥 Visit our site - Ads may appear. If redirected, just go back and click again. For ad-free downloads, join Premium! 🔥
+        <Animated.Text style={[styles.tickerTxt, { transform: [{ translateX: tickX }] }]}>
+          {'🔥 নতুন মুভি পেতে Telegram গ্রুপে join করুন   •   Request করুন আপনার পছন্দের মুভি 🎬'}
         </Animated.Text>
       </View>
 
-      {/* ===== ACTION BUTTONS ===== */}
-      <View style={styles.btnGroup}>
+      {/* BUTTONS */}
+      <View style={styles.btnRow}>
         <TouchableOpacity
-          style={[styles.navBtn, styles.btnTelegram]}
+          style={[styles.navBtn, styles.btnTg]}
           onPress={() => WebBrowser.openBrowserAsync(TELEGRAM_URL)}
         >
-          <Ionicons name="paper-plane" size={14} color="#fff" />
-          <Text style={styles.navBtnText}>Telegram</Text>
+          <Ionicons name="paper-plane" size={13} color="#fff" />
+          <Text style={styles.navBtnTxt}>Telegram</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.navBtn, styles.btnRequest]}
+          style={[styles.navBtn, styles.btnReq]}
           onPress={() => WebBrowser.openBrowserAsync(REQUEST_URL)}
         >
-          <Ionicons name="add" size={14} color="#fff" />
-          <Text style={styles.navBtnText}>Request</Text>
+          <Ionicons name="add-circle-outline" size={13} color="#fff" />
+          <Text style={styles.navBtnTxt}>Request</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.navBtn, styles.btn18, show18 && styles.btn18Active]}
-          onPress={() => setShow18(!show18)}
+          style={[styles.navBtn, styles.btn18, show18 && styles.btn18On]}
+          onPress={() => setShow18(p => !p)}
         >
-          <Ionicons name={show18 ? 'eye' : 'eye-off'} size={14} color="#fff" />
-          <Text style={styles.navBtnText}>{show18 ? 'Hide 18+' : 'Show 18+'}</Text>
+          <Ionicons name={show18 ? 'eye' : 'eye-off'} size={13} color="#fff" />
+          <Text style={styles.navBtnTxt}>{show18 ? 'Hide 18+' : '18+'}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ===== CATEGORIES ===== */}
+      {/* CATEGORIES */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -287,322 +243,168 @@ export default function HomeScreen() {
       >
         {categories.map((cat, i) => {
           const key = cat === 'All' ? 'all' : cat;
+          const on  = activeCat === key;
           return (
             <TouchableOpacity
               key={i}
-              style={[styles.chip, activeCategory === key && styles.chipActive]}
-              onPress={() => setActiveCategory(key)}
+              style={[styles.catChip, on && styles.catChipOn]}
+              onPress={() => setActiveCat(key)}
             >
-              <Text style={[styles.chipText, activeCategory === key && styles.chipTextActive]}>
-                {cat}
-              </Text>
+              <Text style={[styles.catTxt, on && styles.catTxtOn]}>{cat}</Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      {/* ===== MOVIE GRID ===== */}
+      {/* GRID */}
       <FlatList
-        data={displayedMovies}
-        keyExtractor={(item) => item.id}
+        data={displayed}
+        keyExtractor={item => item.id}
         numColumns={2}
         columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.gridContent}
+        contentContainerStyle={styles.gridPad}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.cyan} />}
-        ListHeaderComponent={<Text style={styles.sectionTitle}>Latest</Text>}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); load(); }}
+            tintColor={COLORS.cyan}
+          />
+        }
+        ListHeaderComponent={
+          <View style={styles.listHeader}>
+            <Text style={styles.sectionTitle}>Latest</Text>
+            <Text style={styles.countTxt}>{filtered.length} titles</Text>
+          </View>
+        }
         ListEmptyComponent={
-          <View style={styles.emptyBox}>
-            <Ionicons name="film-outline" size={50} color="rgba(255,255,255,0.2)" />
-            <Text style={styles.emptyText}>No Movies Found</Text>
+          <View style={styles.empty}>
+            <Ionicons name="film-outline" size={56} color="rgba(255,255,255,0.1)" />
+            <Text style={styles.emptyTxt}>No results found</Text>
           </View>
         }
         ListFooterComponent={
           hasMore ? (
             <TouchableOpacity style={styles.moreBtn} onPress={loadMore}>
-              <Text style={styles.moreBtnText}>Load More</Text>
+              <Text style={styles.moreTxt}>Load More</Text>
             </TouchableOpacity>
           ) : null
         }
         renderItem={({ item }) => (
-          <MovieCard
-            movie={item}
-            onPress={openModal}
-            showBlurred={show18}
-          />
+          <MovieCard movie={item} onPress={openModal} />
         )}
       />
 
-      {/* ===== MOVIE MODAL ===== */}
+      {/* MODAL */}
       <MovieModal
-        movie={selectedMovie}
+        movie={selMovie}
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
-        show18={show18}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
+  container: { flex: 1, backgroundColor: COLORS.bg },
+  center: {
+    flex: 1, backgroundColor: COLORS.bg,
+    alignItems: 'center', justifyContent: 'center', padding: 30,
   },
-  loadingContainer: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
+  logoText: { color: COLORS.cyan, fontSize: 36, fontWeight: '900', letterSpacing: -1 },
+  loadTxt:  { color: COLORS.gray, fontSize: 14, marginTop: 12 },
+  errTitle: { color: COLORS.white, fontSize: 20, fontWeight: '800', marginTop: 16 },
+  errSub:   { color: COLORS.gray,  fontSize: 13, marginTop: 8, textAlign: 'center', lineHeight: 20 },
+  retryBtn: {
+    marginTop: 24, backgroundColor: COLORS.cyan,
+    paddingHorizontal: 32, paddingVertical: 12, borderRadius: 30,
   },
-  loadingText: {
-    color: COLORS.gray,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  blockedContainer: {
-    flex: 1,
-    backgroundColor: COLORS.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 30,
-    gap: 14,
-  },
-  blockedTitle: {
-    color: COLORS.white,
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  blockedText: {
-    color: COLORS.gray,
-    fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  contactBtn: {
-    backgroundColor: COLORS.red,
-    paddingHorizontal: 30,
-    paddingVertical: 12,
-    borderRadius: 30,
-    marginTop: 10,
-  },
-  contactBtnText: {
-    color: '#fff',
-    fontWeight: '800',
-    fontSize: 14,
-  },
-
-  // Header
+  retryTxt: { color: '#000', fontWeight: '800', fontSize: 14 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.grayDim,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 11,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
     gap: 12,
   },
-  logo: {
-    color: COLORS.cyan,
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: -0.5,
+  logo: { color: COLORS.cyan, fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
+  searchBox: {
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 50, borderWidth: 1, borderColor: COLORS.border,
+    paddingHorizontal: 14, height: 40,
   },
-  searchWrapper: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0f0f0f',
-    borderRadius: 50,
-    borderWidth: 1,
-    borderColor: COLORS.grayDim,
-    paddingHorizontal: 14,
-    height: 42,
-  },
-  searchInput: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 14,
-    paddingVertical: 0,
-  },
-
-  // Suggestions
-  suggestions: {
-    position: 'absolute',
-    top: 70,
-    left: 16,
-    right: 16,
-    backgroundColor: '#111',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#222',
-    zIndex: 999,
-    maxHeight: 280,
+  searchInput: { flex: 1, color: '#fff', fontSize: 13, paddingVertical: 0 },
+  suggBox: {
+    position: 'absolute', top: 62, left: 16, right: 16,
+    backgroundColor: '#13131c',
+    borderRadius: 14, borderWidth: 1, borderColor: COLORS.border,
+    zIndex: 999, elevation: 14,
+    shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 12,
     overflow: 'hidden',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
   },
-  suggestionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#222',
+  suggRow: {
+    flexDirection: 'row', alignItems: 'center',
+    gap: 12, padding: 10,
   },
-  suggThumb: {
-    width: 35,
-    height: 50,
-    borderRadius: 6,
-    backgroundColor: '#222',
+  suggBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  suggImg:  { width: 36, height: 52, borderRadius: 6, backgroundColor: '#222' },
+  suggName: { color: '#fff', fontSize: 13, fontWeight: '600', maxWidth: width - 130 },
+  suggPill: {
+    backgroundColor: COLORS.cyan, paddingHorizontal: 8, paddingVertical: 2,
+    borderRadius: 8, alignSelf: 'flex-start', marginTop: 4,
   },
-  suggName: {
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-    maxWidth: width - 130,
-  },
-  suggTypeBadge: {
-    backgroundColor: COLORS.cyan,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-    marginTop: 4,
-  },
-  suggTypeText: {
-    color: '#000',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-
-  // Ticker
+  suggPillTxt: { color: '#000', fontSize: 9, fontWeight: '800' },
   ticker: {
-    backgroundColor: '#111',
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#222',
-    paddingVertical: 8,
-    overflow: 'hidden',
+    backgroundColor: '#0a0a10',
+    borderTopWidth: 1, borderBottomWidth: 1, borderColor: COLORS.border,
+    paddingVertical: 7, overflow: 'hidden',
   },
-  tickerText: {
-    color: COLORS.cyan,
-    fontWeight: '700',
-    fontSize: 13,
-    whiteSpace: 'nowrap',
-  },
-
-  // Buttons
-  btnGroup: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  tickerTxt: { color: COLORS.cyan, fontSize: 12, fontWeight: '600' },
+  btnRow: {
+    flexDirection: 'row', gap: 8,
+    paddingHorizontal: 16, paddingVertical: 10,
   },
   navBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 11,
-    borderRadius: 40,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    flex: 1, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', gap: 5,
+    paddingVertical: 10, borderRadius: 40,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  navBtnTxt: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  btnTg:   { borderColor: 'rgba(0,229,255,0.3)' },
+  btnReq:  { borderColor: 'rgba(124,58,237,0.35)' },
+  btn18:   { borderColor: 'rgba(255,45,85,0.35)' },
+  btn18On: { backgroundColor: 'rgba(16,185,129,0.12)', borderColor: COLORS.green },
+  catScroll:  { maxHeight: 46 },
+  catContent: { paddingHorizontal: 16, paddingVertical: 6, gap: 8, alignItems: 'center' },
+  catChip: {
+    paddingHorizontal: 16, paddingVertical: 6,
     backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 50,
   },
-  navBtnText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '700',
+  catChipOn: { backgroundColor: COLORS.cyan, borderColor: COLORS.cyan },
+  catTxt:    { color: COLORS.gray, fontSize: 12, fontWeight: '600' },
+  catTxtOn:  { color: '#000' },
+  gridPad:   { paddingHorizontal: 16, paddingBottom: 40 },
+  row:       { justifyContent: 'space-between' },
+  listHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: 12, marginTop: 10,
   },
-  btnTelegram: {
-    borderColor: 'rgba(0,255,180,0.4)',
+  sectionTitle: { color: COLORS.white, fontSize: 18, fontWeight: '800' },
+  countTxt:     { color: COLORS.gray, fontSize: 12 },
+  empty: {
+    alignItems: 'center', justifyContent: 'center',
+    padding: 60, gap: 12,
   },
-  btnRequest: {
-    borderColor: 'rgba(99,102,241,0.4)',
-  },
-  btn18: {
-    borderColor: 'rgba(255,0,89,0.4)',
-  },
-  btn18Active: {
-    backgroundColor: 'rgba(0,255,150,0.15)',
-    borderColor: COLORS.green,
-  },
-
-  // Categories
-  catScroll: {
-    maxHeight: 48,
-  },
-  catContent: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    gap: 8,
-    alignItems: 'center',
-  },
-  chip: {
-    paddingHorizontal: 18,
-    paddingVertical: 6,
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#222',
-    borderRadius: 50,
-  },
-  chipActive: {
-    backgroundColor: COLORS.cyan,
-    borderColor: COLORS.cyan,
-  },
-  chipText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  chipTextActive: {
-    color: '#000',
-  },
-
-  // Grid
-  sectionTitle: {
-    color: COLORS.cyan,
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 12,
-    marginTop: 8,
-  },
-  gridContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 40,
-  },
-  row: {
-    justifyContent: 'space-between',
-  },
-  emptyBox: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 50,
-    gap: 12,
-  },
-  emptyText: {
-    color: 'rgba(255,255,255,0.3)',
-    fontSize: 16,
-    fontWeight: '600',
-  },
+  emptyTxt: { color: 'rgba(255,255,255,0.2)', fontSize: 15, fontWeight: '600' },
   moreBtn: {
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#222',
-    paddingVertical: 14,
-    paddingHorizontal: 40,
-    borderRadius: 50,
     alignSelf: 'center',
-    marginVertical: 20,
+    borderWidth: 1, borderColor: COLORS.border,
+    paddingVertical: 13, paddingHorizontal: 40,
+    borderRadius: 50, marginVertical: 20,
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  moreBtnText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 14,
-  },
+  moreTxt: { color: COLORS.white, fontWeight: '700', fontSize: 14 },
 });

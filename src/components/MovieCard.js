@@ -1,167 +1,130 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
+  View, Text, Image, TouchableOpacity,
+  StyleSheet, Animated, Dimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../utils/constants';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - 40 - 10) / 2; // 5% padding each side + gap
+const CARD_W = (width - 48) / 2;
 
-export default function MovieCard({ movie, onPress, showBlurred = false }) {
-  const shouldBlur = movie.isBlurred && !showBlurred;
+export default function MovieCard({ movie, onPress }) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const onPressIn  = () => Animated.spring(scale, { toValue: 0.95, useNativeDriver: true }).start();
+  const onPressOut = () => Animated.spring(scale, { toValue: 1,    useNativeDriver: true }).start();
 
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => onPress(movie)}
-      activeOpacity={0.85}
-    >
-      <View style={styles.poster}>
-        <Image
-          source={{ uri: movie.thumbnail }}
-          style={[styles.posterImage, shouldBlur && styles.blurred]}
-          resizeMode="cover"
-        />
+    <Animated.View style={[styles.wrap, { transform: [{ scale }] }]}>
+      <TouchableOpacity
+        activeOpacity={1}
+        onPress={() => onPress(movie)}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+      >
+        <View style={styles.poster}>
+          <Image
+            source={{ uri: movie.thumbnail }}
+            style={[styles.img, movie.isBlurred && styles.blurred]}
+            resizeMode="cover"
+          />
+          <LinearGradient
+            colors={['transparent', 'rgba(5,5,8,0.92)']}
+            style={styles.grad}
+          />
 
-        {/* Top Left Badge */}
-        {movie.topLeftBadge ? (
-          <View style={styles.badgeTopLeft}>
-            <Text style={styles.badgeText}>{movie.topLeftBadge}</Text>
+          {movie.topLeftBadge ? (
+            <View style={styles.badgeTL}>
+              <Text style={styles.badgeTxt}>{movie.topLeftBadge}</Text>
+            </View>
+          ) : null}
+
+          {movie.bottomLeftBadge ? (
+            <View style={styles.badgeBL}>
+              <Text style={styles.badgeTxt}>{movie.bottomLeftBadge}</Text>
+            </View>
+          ) : null}
+
+          {movie.badge ? (
+            <View style={styles.badgeTR}>
+              <Text style={[styles.badgeTxt, { color: '#000' }]}>{movie.badge}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.typePill}>
+            <Text style={styles.typeTxt}>{movie.type || 'Movie'}</Text>
           </View>
-        ) : null}
 
-        {/* Bottom Left Badge */}
-        {movie.bottomLeftBadge ? (
-          <View style={styles.badgeBottomLeft}>
-            <Text style={styles.badgeText}>{movie.bottomLeftBadge}</Text>
-          </View>
-        ) : null}
-
-        {/* Top Right Badge (pre-release etc) */}
-        {movie.badge ? (
-          <View style={styles.badgeTopRight}>
-            <Text style={[styles.badgeText, { color: '#000' }]}>{movie.badge}</Text>
-          </View>
-        ) : null}
-
-        {/* Type badge (bottom right) */}
-        <View style={styles.badgeType}>
-          <Text style={[styles.badgeText, { color: '#000' }]}>
-            {movie.type || 'Movie'}
-          </Text>
+          {movie.isBlurred && (
+            <View style={styles.blurCover}>
+              <Text style={styles.blurTxt}>18+</Text>
+            </View>
+          )}
         </View>
 
-        {/* Blur overlay text */}
-        {shouldBlur && (
-          <View style={styles.blurOverlay}>
-            <Text style={styles.blurText}>18+</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.info}>
-        <Text style={styles.title} numberOfLines={1}>
-          {movie.name}
-        </Text>
-      </View>
-    </TouchableOpacity>
+        <View style={styles.info}>
+          <Text style={styles.title} numberOfLines={1}>{movie.name}</Text>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    width: CARD_WIDTH,
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
+  wrap: {
+    width: CARD_W,
+    backgroundColor: COLORS.bgCard,
+    borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 10,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
   },
-  poster: {
-    aspectRatio: 2 / 3,
-    position: 'relative',
-    overflow: 'hidden',
+  poster: { aspectRatio: 2 / 3, overflow: 'hidden' },
+  img:    { width: '100%', height: '100%' },
+  blurred:{ opacity: 0.07 },
+  grad: {
+    position: 'absolute', bottom: 0, left: 0, right: 0, height: 60,
   },
-  posterImage: {
-    width: '100%',
-    height: '100%',
-  },
-  blurred: {
-    opacity: 0.1,
-  },
-  blurOverlay: {
-    position: 'absolute',
-    inset: 0,
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)',
-  },
-  blurText: {
-    color: COLORS.red,
-    fontSize: 28,
-    fontWeight: '900',
-  },
-  badgeTopLeft: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
+  badgeTL: {
+    position: 'absolute', top: 0, left: 0,
     backgroundColor: COLORS.red,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderBottomRightRadius: 10,
-    zIndex: 5,
+    paddingHorizontal: 9, paddingVertical: 4,
+    borderBottomRightRadius: 10, zIndex: 5,
   },
-  badgeBottomLeft: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
+  badgeBL: {
+    position: 'absolute', bottom: 0, left: 0,
     backgroundColor: COLORS.purple,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderTopRightRadius: 10,
-    zIndex: 5,
+    paddingHorizontal: 9, paddingVertical: 4,
+    borderTopRightRadius: 10, zIndex: 5,
   },
-  badgeTopRight: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
+  badgeTR: {
+    position: 'absolute', top: 0, right: 0,
     backgroundColor: COLORS.gold,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderBottomLeftRadius: 10,
-    zIndex: 5,
+    paddingHorizontal: 9, paddingVertical: 4,
+    borderBottomLeftRadius: 10, zIndex: 5,
   },
-  badgeType: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
+  badgeTxt: { color: '#fff', fontSize: 9, fontWeight: '800' },
+  typePill: {
+    position: 'absolute', bottom: 8, right: 8,
     backgroundColor: COLORS.cyan,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 4,
-    zIndex: 5,
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 6, zIndex: 5,
   },
-  badgeText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '800',
+  typeTxt:  { color: '#000', fontSize: 9, fontWeight: '800' },
+  blurCover: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(5,5,8,0.75)',
+    alignItems: 'center', justifyContent: 'center',
   },
-  info: {
-    padding: 10,
-  },
-  title: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: '700',
-  },
+  blurTxt: { color: COLORS.red, fontSize: 32, fontWeight: '900' },
+  info:    { paddingHorizontal: 10, paddingVertical: 8 },
+  title:   { color: COLORS.white, fontSize: 12, fontWeight: '700', letterSpacing: 0.2 },
 });

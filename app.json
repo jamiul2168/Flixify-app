@@ -7,7 +7,7 @@
     "userInterfaceStyle": "dark",
     "splash": {
       "resizeMode": "contain",
-      "backgroundColor": "#030303"
+      "backgroundColor": "#050508"
     },
     "android": {
       "package": "com.flixify.app",
