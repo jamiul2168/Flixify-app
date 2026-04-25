@@ -83,8 +83,14 @@ export default function SplashScreenView({ onFinish }) {
         styles.logoWrap,
         { opacity: logoOpacity, transform: [{ scale: logoScale }] },
       ]}>
-        {/* Actual Logo */}
+        {/* App Logo */}
         <Image source={LOGO} style={styles.logoImg} resizeMode="contain" />
+
+        {/* App Name */}
+        <Animated.View style={[styles.appNameRow, { opacity: tagOpacity }]}>
+          <Text style={styles.appNameRed}>Flixi</Text>
+          <Text style={styles.appNameBlue}>fy</Text>
+        </Animated.View>
 
         <Animated.Text style={[styles.tagText, { opacity: tagOpacity }]}>
           Movies & Series — All in One
@@ -133,14 +139,32 @@ const styles = StyleSheet.create({
     marginBottom: 60,
   },
   logoImg: {
-    width: 180,
-    height: 180,
+    width: 120,
+    height: 120,
+  },
+  appNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  appNameRed: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#eb0050',
+    letterSpacing: -1,
+  },
+  appNameBlue: {
+    fontSize: 34,
+    fontWeight: '900',
+    color: '#1a6eff',
+    letterSpacing: -1,
   },
   tagText: {
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 13,
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 12,
     fontWeight: '500',
     letterSpacing: 0.5,
+    marginTop: 4,
   },
   barTrack: {
     width: width * 0.55,

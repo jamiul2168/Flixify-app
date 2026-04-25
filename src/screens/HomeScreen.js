@@ -152,12 +152,11 @@ export default function HomeScreen({ show18 = false }) {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
         <View style={styles.header}>
-          <Image source={LOGO} style={styles.logoImg} resizeMode="contain" />
           <Text style={styles.logoTxt}>Flixify</Text>
           <View style={{ flex: 1 }} />
           <View style={[styles.searchBox, { opacity: 0.35 }]}>
-            <Ionicons name="search" size={15} color={COLORS.cyan} style={{ marginRight: 8 }} />
-            <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 13 }}>Loading…</Text>
+            <Ionicons name="search" size={18} color={COLORS.cyan} style={{ marginRight: 10 }} />
+            <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 14 }}>Loading…</Text>
           </View>
         </View>
         <SkeletonGrid />
@@ -190,8 +189,7 @@ export default function HomeScreen({ show18 = false }) {
 
       {/* ── HEADER ── */}
       <View style={styles.header}>
-        {/* Logo + title */}
-        <Image source={LOGO} style={styles.logoImg} resizeMode="contain" />
+        {/* Title only */}
         <Text style={styles.logoTxt}>Flixify</Text>
 
         {/* 18+ badge when active */}
@@ -205,11 +203,11 @@ export default function HomeScreen({ show18 = false }) {
 
         {/* Search box */}
         <View style={styles.searchBox}>
-          <Ionicons name="search" size={15} color={COLORS.cyan} style={{ marginRight: 8 }} />
+          <Ionicons name="search" size={18} color={COLORS.pink} style={{ marginRight: 10 }} />
           <TextInput
             ref={searchRef}
             style={styles.searchInput}
-            placeholder="Search…"
+            placeholder="Search movies & series…"
             placeholderTextColor="rgba(255,255,255,0.28)"
             value={search}
             onChangeText={setSearch}
@@ -217,7 +215,7 @@ export default function HomeScreen({ show18 = false }) {
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => { setSearch(''); setShowSugg(false); }}>
-              <Ionicons name="close-circle" size={17} color="rgba(255,255,255,0.35)" />
+              <Ionicons name="close-circle" size={19} color="rgba(255,255,255,0.35)" />
             </TouchableOpacity>
           )}
         </View>
@@ -270,14 +268,6 @@ export default function HomeScreen({ show18 = false }) {
               style={[styles.catChip, on && styles.catChipOn]}
               onPress={() => setActiveCat(key)}
             >
-              {on && (
-                <LinearGradient
-                  colors={[COLORS.cyan, '#0099bb']}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                  style={StyleSheet.absoluteFillObject}
-                  borderRadius={50}
-                />
-              )}
               <Text style={[styles.catTxt, on && styles.catTxtOn]}>{cat}</Text>
             </TouchableOpacity>
           );
@@ -382,13 +372,14 @@ const styles = StyleSheet.create({
   },
   adultBadgeTxt: { color: '#fff', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
   searchBox: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.055)',
-    borderRadius: 50, borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
-    paddingHorizontal: 12, height: 38,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 50, borderWidth: 1.5,
+    borderColor: 'rgba(0,229,255,0.20)',
+    paddingHorizontal: 16, height: 44,
+    width: 200,
   },
-  searchInput: { flex: 1, color: '#fff', fontSize: 13, paddingVertical: 0 },
+  searchInput: { flex: 1, color: '#fff', fontSize: 14, paddingVertical: 0 },
 
   // ── Suggestions
   suggBox: {
@@ -433,7 +424,7 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
     borderRadius: 50, overflow: 'hidden',
   },
-  catChipOn: { borderColor: COLORS.cyan },
+  catChipOn: { backgroundColor: COLORS.cyan, borderColor: COLORS.cyan },
   catTxt:    { color: 'rgba(255,255,255,0.40)', fontSize: 12, fontWeight: '600' },
   catTxtOn:  { color: '#000', fontWeight: '800' },
 

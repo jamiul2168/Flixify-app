@@ -4,6 +4,8 @@ export const COLORS = {
   bgModal: '#12121a',
   border: 'rgba(255,255,255,0.07)',
   cyan: '#00e5ff',
+  pink: '#eb0050',
+  blue: '#1a6eff',
   cyanDim: 'rgba(0,229,255,0.12)',
   red: '#ff2d55',
   purple: '#7c3aed',
