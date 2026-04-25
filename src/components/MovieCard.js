@@ -4,6 +4,7 @@ import {
   StyleSheet, Animated, Dimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { COLORS } from '../utils/constants';
 
 const { width } = Dimensions.get('window');
@@ -26,8 +27,9 @@ export default function MovieCard({ movie, onPress }) {
         <View style={styles.poster}>
           <Image
             source={{ uri: movie.thumbnail }}
-            style={[styles.img, movie.isBlurred && styles.blurred]}
+            style={styles.img}
             resizeMode="cover"
+            blurRadius={movie.isBlurred ? 18 : 0}
           />
           <LinearGradient
             colors={['transparent', 'rgba(5,5,8,0.92)']}
@@ -57,8 +59,8 @@ export default function MovieCard({ movie, onPress }) {
           </View>
 
           {movie.isBlurred && (
-            <View style={styles.blurCover}>
-              <Text style={styles.blurTxt}>18+</Text>
+            <View style={styles.blurLabel}>
+              <Text style={styles.blurLabelTxt}>18+</Text>
             </View>
           )}
         </View>
@@ -88,7 +90,6 @@ const styles = StyleSheet.create({
   },
   poster: { aspectRatio: 2 / 3, overflow: 'hidden' },
   img:    { width: '100%', height: '100%' },
-  blurred:{ opacity: 0.07 },
   grad: {
     position: 'absolute', bottom: 0, left: 0, right: 0, height: 60,
   },
@@ -118,13 +119,14 @@ const styles = StyleSheet.create({
     borderRadius: 6, zIndex: 5,
   },
   typeTxt:  { color: '#000', fontSize: 9, fontWeight: '800' },
-  blurCover: {
+  blurLabel: {
     position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(5,5,8,0.75)',
-    alignItems: 'center', justifyContent: 'center',
+    top: 0, right: 0,
+    backgroundColor: COLORS.red,
+    paddingHorizontal: 7, paddingVertical: 3,
+    borderBottomLeftRadius: 8, zIndex: 6,
   },
-  blurTxt: { color: COLORS.red, fontSize: 32, fontWeight: '900' },
+  blurLabelTxt: { color: '#fff', fontSize: 9, fontWeight: '900' },
   info:    { paddingHorizontal: 10, paddingVertical: 8 },
   title:   { color: COLORS.white, fontSize: 12, fontWeight: '700', letterSpacing: 0.2 },
 });

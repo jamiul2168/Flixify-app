@@ -89,7 +89,7 @@ export default function HomeScreen() {
       const s = m.name.toLowerCase().includes(search.toLowerCase());
       const c = activeCat === 'all'
         || m.categories.some(x => x.toLowerCase() === activeCat.toLowerCase());
-      const b = !show18 ? true : m.isBlurred;
+      const b = show18 ? true : !m.isBlurred;
       return s && c && b;
     });
     setFiltered(result);
@@ -202,8 +202,11 @@ export default function HomeScreen() {
 
       {/* TICKER */}
       <View style={styles.ticker}>
-        <Animated.Text style={[styles.tickerTxt, { transform: [{ translateX: tickX }] }]}>
-          {'🔥 নতুন মুভি পেতে Telegram গ্রুপে join করুন   •   Request করুন আপনার পছন্দের মুভি 🎬'}
+        <Animated.Text
+          style={[styles.tickerTxt, { transform: [{ translateX: tickX }] }]}
+          numberOfLines={1}
+        >
+          {'🎬 Welcome to Flixify App!   •   নতুন মুভি পেতে Telegram গ্রুপে join করুন   •   Request করুন আপনার পছন্দের মুভি 🔥'}
         </Animated.Text>
       </View>
 
@@ -357,9 +360,9 @@ const styles = StyleSheet.create({
   ticker: {
     backgroundColor: '#0a0a10',
     borderTopWidth: 1, borderBottomWidth: 1, borderColor: COLORS.border,
-    paddingVertical: 7, overflow: 'hidden',
+    paddingVertical: 7, overflow: 'hidden', height: 32,
   },
-  tickerTxt: { color: COLORS.cyan, fontSize: 12, fontWeight: '600' },
+  tickerTxt: { color: COLORS.cyan, fontSize: 12, fontWeight: '600', whiteSpace: 'nowrap' },
   btnRow: {
     flexDirection: 'row', gap: 8,
     paddingHorizontal: 16, paddingVertical: 10,
@@ -376,8 +379,8 @@ const styles = StyleSheet.create({
   btnReq:  { borderColor: 'rgba(124,58,237,0.35)' },
   btn18:   { borderColor: 'rgba(255,45,85,0.35)' },
   btn18On: { backgroundColor: 'rgba(16,185,129,0.12)', borderColor: COLORS.green },
-  catScroll:  { maxHeight: 46 },
-  catContent: { paddingHorizontal: 16, paddingVertical: 6, gap: 8, alignItems: 'center' },
+  catScroll:  { flexGrow: 0 },
+  catContent: { paddingHorizontal: 16, paddingVertical: 8, gap: 8, alignItems: 'center', flexGrow: 0 },
   catChip: {
     paddingHorizontal: 16, paddingVertical: 6,
     backgroundColor: 'rgba(255,255,255,0.05)',
