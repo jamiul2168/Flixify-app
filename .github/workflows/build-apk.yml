@@ -31,7 +31,7 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
-      - name: Prebuild Android (generate native project)
+      - name: Expo Prebuild
         run: npx expo prebuild --platform android --clean
         env:
           EAS_BUILD_NO_EXPO_GO_WARNING: true
@@ -40,23 +40,18 @@ jobs:
         run: chmod +x android/gradlew
 
       - name: Build Release APK
-        run: |
-          cd android
-          ./gradlew assembleRelease --no-daemon
+        run: cd android && ./gradlew assembleRelease --no-daemon
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g"
 
-      - name: Find APK
-        run: find android -name "*.apk" -type f
-
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Flixify-APK-${{ github.sha }}
           path: android/app/build/outputs/apk/release/*.apk
           retention-days: 30
 
-      - name: Create GitHub Release
+      - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
