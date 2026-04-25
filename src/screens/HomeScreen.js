@@ -16,10 +16,9 @@ import MovieModal from '../components/MovieModal';
 import { SkeletonGrid } from '../components/SkeletonCard';
 
 const LOGO = require('../../assets/logo.png');
-
 const { width } = Dimensions.get('window');
 
-export default function HomeScreen({ initialSearch = false, showTrending = false }) {
+export default function HomeScreen({ show18 = false }) {
   const insets = useSafeAreaInsets();
 
   const [allMovies,    setAllMovies]    = useState([]);
@@ -28,7 +27,6 @@ export default function HomeScreen({ initialSearch = false, showTrending = false
   const [categories,   setCategories]   = useState(['All']);
   const [activeCat,    setActiveCat]    = useState('all');
   const [search,       setSearch]       = useState('');
-  const [show18,       setShow18]       = useState(false);
   const [loading,      setLoading]      = useState(true);
   const [refreshing,   setRefreshing]   = useState(false);
   const [error,        setError]        = useState(null);
@@ -93,7 +91,6 @@ export default function HomeScreen({ initialSearch = false, showTrending = false
         || m.categories.some(x => x.toLowerCase() === activeCat.toLowerCase());
       return s && c;
     });
-    // যখন show18 true → 18+ মুভি সামনে আসবে
     if (show18) {
       const adult  = result.filter(m => m.isBlurred);
       const normal = result.filter(m => !m.isBlurred);
@@ -121,25 +118,6 @@ export default function HomeScreen({ initialSearch = false, showTrending = false
   const searchRef = useRef(null);
   const refreshRotate = useRef(new Animated.Value(0)).current;
 
-  // initialSearch prop থাকলে search focus করো
-  useEffect(() => {
-    if (initialSearch && searchRef.current) {
-      setTimeout(() => searchRef.current?.focus(), 300);
-    }
-  }, [initialSearch]);
-
-  // showTrending prop থাকলে trending category select করো
-  useEffect(() => {
-    if (showTrending && categories.length > 1) {
-      // "Trending" বা "Action" ক্যাটাগরি select করো
-      const trending = categories.find(c =>
-        c.toLowerCase().includes('trending') || c.toLowerCase().includes('popular')
-      );
-      if (trending) setActiveCat(trending.toLowerCase());
-    }
-  }, [showTrending, categories]);
-
-  // Pull-to-refresh spin animation
   const startRefreshAnim = () => {
     refreshRotate.setValue(0);
     Animated.loop(
@@ -151,9 +129,7 @@ export default function HomeScreen({ initialSearch = false, showTrending = false
     ).start();
   };
 
-  const stopRefreshAnim = () => {
-    refreshRotate.stopAnimation();
-  };
+  const stopRefreshAnim = () => refreshRotate.stopAnimation();
 
   const loadMore = () => {
     if (!hasMore) return;
@@ -170,17 +146,18 @@ export default function HomeScreen({ initialSearch = false, showTrending = false
     setShowSugg(false);
   };
 
-  // Loading → skeleton grid দেখাও (header সহ)
+  // ── Loading skeleton ────────────────────────────────────────────────────────
   if (loading) {
     return (
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-        {/* Header skeleton */}
         <View style={styles.header}>
-          <Text style={styles.logo}>Flixify</Text>
-          <View style={[styles.searchBox, { opacity: 0.4 }]}>
+          <Image source={LOGO} style={styles.logoImg} resizeMode="contain" />
+          <Text style={styles.logoTxt}>Flixify</Text>
+          <View style={{ flex: 1 }} />
+          <View style={[styles.searchBox, { opacity: 0.35 }]}>
             <Ionicons name="search" size={15} color={COLORS.cyan} style={{ marginRight: 8 }} />
-            <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 13 }}>Loading...</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 13 }}>Loading…</Text>
           </View>
         </View>
         <SkeletonGrid />
@@ -188,6 +165,7 @@ export default function HomeScreen({ initialSearch = false, showTrending = false
     );
   }
 
+  // ── Error ───────────────────────────────────────────────────────────────────
   if (error) {
     return (
       <View style={styles.center}>
@@ -205,33 +183,47 @@ export default function HomeScreen({ initialSearch = false, showTrending = false
     );
   }
 
+  // ── Main UI ─────────────────────────────────────────────────────────────────
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
 
-      {/* HEADER */}
+      {/* ── HEADER ── */}
       <View style={styles.header}>
-        <Text style={styles.logo}>Flixify</Text>
+        {/* Logo + title */}
+        <Image source={LOGO} style={styles.logoImg} resizeMode="contain" />
+        <Text style={styles.logoTxt}>Flixify</Text>
+
+        {/* 18+ badge when active */}
+        {show18 && (
+          <View style={styles.adultBadge}>
+            <Text style={styles.adultBadgeTxt}>18+</Text>
+          </View>
+        )}
+
+        <View style={{ flex: 1 }} />
+
+        {/* Search box */}
         <View style={styles.searchBox}>
           <Ionicons name="search" size={15} color={COLORS.cyan} style={{ marginRight: 8 }} />
           <TextInput
             ref={searchRef}
             style={styles.searchInput}
-            placeholder="Search movies & series..."
-            placeholderTextColor="rgba(255,255,255,0.3)"
+            placeholder="Search…"
+            placeholderTextColor="rgba(255,255,255,0.28)"
             value={search}
             onChangeText={setSearch}
             onFocus={() => search.length > 0 && setShowSugg(true)}
           />
           {search.length > 0 && (
             <TouchableOpacity onPress={() => { setSearch(''); setShowSugg(false); }}>
-              <Ionicons name="close-circle" size={17} color="rgba(255,255,255,0.4)" />
+              <Ionicons name="close-circle" size={17} color="rgba(255,255,255,0.35)" />
             </TouchableOpacity>
           )}
         </View>
       </View>
 
-      {/* SUGGESTIONS */}
+      {/* ── SUGGESTIONS ── */}
       {showSugg && suggestions.length > 0 && (
         <View style={styles.suggBox}>
           {suggestions.map((m, i) => (
@@ -252,7 +244,7 @@ export default function HomeScreen({ initialSearch = false, showTrending = false
         </View>
       )}
 
-      {/* TICKER */}
+      {/* ── TICKER ── */}
       <View style={styles.ticker}>
         <Animated.Text
           style={[styles.tickerTxt, { transform: [{ translateX: tickX }] }]}
@@ -262,18 +254,7 @@ export default function HomeScreen({ initialSearch = false, showTrending = false
         </Animated.Text>
       </View>
 
-      {/* 18+ TOGGLE */}
-      <View style={styles.btnRow}>
-        <TouchableOpacity
-          style={[styles.navBtn, styles.btn18, show18 && styles.btn18On]}
-          onPress={() => setShow18(p => !p)}
-        >
-          <Ionicons name={show18 ? 'eye' : 'eye-off'} size={13} color="#fff" />
-          <Text style={styles.navBtnTxt}>{show18 ? 'Hide 18+' : 'Show 18+'}</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* CATEGORIES */}
+      {/* ── CATEGORY CHIPS ── */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -289,13 +270,21 @@ export default function HomeScreen({ initialSearch = false, showTrending = false
               style={[styles.catChip, on && styles.catChipOn]}
               onPress={() => setActiveCat(key)}
             >
+              {on && (
+                <LinearGradient
+                  colors={[COLORS.cyan, '#0099bb']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={StyleSheet.absoluteFillObject}
+                  borderRadius={50}
+                />
+              )}
               <Text style={[styles.catTxt, on && styles.catTxtOn]}>{cat}</Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      {/* GRID */}
+      {/* ── GRID ── */}
       <FlatList
         data={displayed}
         keyExtractor={item => item.id}
@@ -318,19 +307,26 @@ export default function HomeScreen({ initialSearch = false, showTrending = false
         }
         ListHeaderComponent={
           <View style={styles.listHeader}>
-            <Text style={styles.sectionTitle}>Latest</Text>
-            <Text style={styles.countTxt}>{filtered.length} titles</Text>
+            <Text style={styles.sectionTitle}>
+              {activeCat === 'all' ? 'Latest' : activeCat}
+            </Text>
           </View>
         }
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Ionicons name="film-outline" size={56} color="rgba(255,255,255,0.1)" />
+            <Ionicons name="film-outline" size={56} color="rgba(255,255,255,0.08)" />
             <Text style={styles.emptyTxt}>No results found</Text>
           </View>
         }
         ListFooterComponent={
           hasMore ? (
             <TouchableOpacity style={styles.moreBtn} onPress={loadMore}>
+              <LinearGradient
+                colors={['rgba(0,229,255,0.10)', 'rgba(0,229,255,0.03)']}
+                style={StyleSheet.absoluteFillObject}
+                borderRadius={50}
+              />
+              <Ionicons name="chevron-down" size={16} color={COLORS.cyan} />
               <Text style={styles.moreTxt}>Load More</Text>
             </TouchableOpacity>
           ) : null
@@ -340,7 +336,7 @@ export default function HomeScreen({ initialSearch = false, showTrending = false
         )}
       />
 
-      {/* MODAL */}
+      {/* ── MODAL ── */}
       <MovieModal
         movie={selMovie}
         visible={modalVisible}
@@ -356,8 +352,8 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: COLORS.bg,
     alignItems: 'center', justifyContent: 'center', padding: 30,
   },
-  logoText: { color: COLORS.cyan, fontSize: 36, fontWeight: '900', letterSpacing: -1 },
-  loadTxt:  { color: COLORS.gray, fontSize: 14, marginTop: 12 },
+
+  // ── Error
   errTitle: { color: COLORS.white, fontSize: 20, fontWeight: '800', marginTop: 16 },
   errSub:   { color: COLORS.gray,  fontSize: 13, marginTop: 8, textAlign: 'center', lineHeight: 20 },
   retryBtn: {
@@ -365,91 +361,110 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32, paddingVertical: 12, borderRadius: 30,
   },
   retryTxt: { color: '#000', fontWeight: '800', fontSize: 14 },
+
+  // ── Header
   header: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 11,
-    borderBottomWidth: 1, borderBottomColor: COLORS.border,
-    gap: 12,
+    paddingHorizontal: 14, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
+    gap: 8,
+    backgroundColor: '#06060b',
   },
-  logo: { color: COLORS.cyan, fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
-  headerLogo: { width: 90, height: 36 },
+  logoImg: { width: 26, height: 26, borderRadius: 6 },
+  logoTxt: {
+    color: COLORS.cyan, fontSize: 19, fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  adultBadge: {
+    backgroundColor: '#f43f5e',
+    paddingHorizontal: 7, paddingVertical: 2,
+    borderRadius: 6,
+  },
+  adultBadgeTxt: { color: '#fff', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
   searchBox: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 50, borderWidth: 1, borderColor: COLORS.border,
-    paddingHorizontal: 14, height: 40,
+    backgroundColor: 'rgba(255,255,255,0.055)',
+    borderRadius: 50, borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    paddingHorizontal: 12, height: 38,
   },
   searchInput: { flex: 1, color: '#fff', fontSize: 13, paddingVertical: 0 },
+
+  // ── Suggestions
   suggBox: {
-    position: 'absolute', top: 62, left: 16, right: 16,
-    backgroundColor: '#13131c',
-    borderRadius: 14, borderWidth: 1, borderColor: COLORS.border,
-    zIndex: 999, elevation: 14,
-    shadowColor: '#000', shadowOpacity: 0.6, shadowRadius: 12,
+    position: 'absolute', top: 60, left: 14, right: 14,
+    backgroundColor: '#13131e',
+    borderRadius: 16, borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    zIndex: 999, elevation: 18,
+    shadowColor: '#000', shadowOpacity: 0.7, shadowRadius: 16,
     overflow: 'hidden',
   },
   suggRow: {
     flexDirection: 'row', alignItems: 'center',
     gap: 12, padding: 10,
   },
-  suggBorder: { borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  suggImg:  { width: 36, height: 52, borderRadius: 6, backgroundColor: '#222' },
-  suggName: { color: '#fff', fontSize: 13, fontWeight: '600', maxWidth: width - 130 },
+  suggBorder: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  suggImg:   { width: 36, height: 52, borderRadius: 6, backgroundColor: '#222' },
+  suggName:  { color: '#fff', fontSize: 13, fontWeight: '600', maxWidth: width - 130 },
   suggPill: {
     backgroundColor: COLORS.cyan, paddingHorizontal: 8, paddingVertical: 2,
     borderRadius: 8, alignSelf: 'flex-start', marginTop: 4,
   },
   suggPillTxt: { color: '#000', fontSize: 9, fontWeight: '800' },
+
+  // ── Ticker
   ticker: {
-    backgroundColor: '#0a0a10',
-    borderTopWidth: 1, borderBottomWidth: 1, borderColor: COLORS.border,
+    backgroundColor: '#07070e',
+    borderBottomWidth: 1, borderBottomColor: 'rgba(0,229,255,0.07)',
     paddingVertical: 7, overflow: 'hidden', height: 32,
   },
-  tickerTxt: { color: COLORS.cyan, fontSize: 12, fontWeight: '600', whiteSpace: 'nowrap' },
-  btnRow: {
-    flexDirection: 'row', gap: 8,
-    paddingHorizontal: 16, paddingVertical: 10,
-  },
-  navBtn: {
-    flex: 1, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 5,
-    paddingVertical: 10, borderRadius: 40,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  navBtnTxt: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  tickerTxt: { color: COLORS.cyan, fontSize: 11.5, fontWeight: '600' },
 
-  btn18:   { borderColor: 'rgba(255,45,85,0.35)' },
-  btn18On: { backgroundColor: 'rgba(16,185,129,0.12)', borderColor: COLORS.green },
-  catScroll:  { flexShrink: 0, marginVertical: 4 },
-  catContent: { paddingHorizontal: 16, paddingVertical: 6, gap: 8, alignItems: 'center' },
+  // ── Categories
+  catScroll:  { flexShrink: 0 },
+  catContent: {
+    paddingHorizontal: 14, paddingVertical: 10,
+    gap: 8, alignItems: 'center',
+  },
   catChip: {
-    paddingHorizontal: 16, paddingVertical: 6,
+    paddingHorizontal: 16, paddingVertical: 7,
     backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: COLORS.border, borderRadius: 50,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 50, overflow: 'hidden',
   },
-  catChipOn: { backgroundColor: COLORS.cyan, borderColor: COLORS.cyan },
-  catTxt:    { color: COLORS.gray, fontSize: 12, fontWeight: '600' },
-  catTxtOn:  { color: '#000' },
-  gridPad:   { paddingHorizontal: 16, paddingBottom: 40 },
-  row:       { justifyContent: 'space-between' },
+  catChipOn: { borderColor: COLORS.cyan },
+  catTxt:    { color: 'rgba(255,255,255,0.40)', fontSize: 12, fontWeight: '600' },
+  catTxtOn:  { color: '#000', fontWeight: '800' },
+
+  // ── Grid
+  gridPad: { paddingHorizontal: 14, paddingBottom: 40 },
+  row:     { justifyContent: 'space-between' },
   listHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 12, marginTop: 10,
+    marginBottom: 10, marginTop: 8,
   },
-  sectionTitle: { color: COLORS.white, fontSize: 18, fontWeight: '800' },
-  countTxt:     { color: COLORS.gray, fontSize: 12 },
+  sectionTitle: {
+    color: COLORS.white, fontSize: 17, fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+
+  // ── Empty
   empty: {
     alignItems: 'center', justifyContent: 'center',
     padding: 60, gap: 12,
   },
-  emptyTxt: { color: 'rgba(255,255,255,0.2)', fontSize: 15, fontWeight: '600' },
+  emptyTxt: { color: 'rgba(255,255,255,0.18)', fontSize: 15, fontWeight: '600' },
+
+  // ── Load more
   moreBtn: {
+    flexDirection: 'row',
     alignSelf: 'center',
-    borderWidth: 1, borderColor: COLORS.border,
-    paddingVertical: 13, paddingHorizontal: 40,
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1, borderColor: 'rgba(0,229,255,0.20)',
+    paddingVertical: 12, paddingHorizontal: 36,
     borderRadius: 50, marginVertical: 20,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    overflow: 'hidden',
   },
-  moreTxt: { color: COLORS.white, fontWeight: '700', fontSize: 14 },
+  moreTxt: { color: COLORS.cyan, fontWeight: '700', fontSize: 13 },
 });
