@@ -25,3 +25,4 @@ export const TELEGRAM_URL = 'https://t.me/flixifyofficialgrp';
 export const REQUEST_URL  = 'https://request.flixify.jhtone.site/';
 export const AD_GATEWAY   = 'https://www.profitablecpmratenetwork.com/y66v10fk?key=452bac688b016ffbca9267b166075e71';
 export const MOVIES_PER_PAGE = 18;
+export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtS79w-8doHBbTv48j2eINoew1mlaofDVX2IIhDYfAQG6MXkkn6pgyaU6r24Ss8gPlFQ/exec';

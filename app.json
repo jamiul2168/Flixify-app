@@ -23,11 +23,24 @@
       },
       "permissions": [
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "ACCESS_NETWORK_STATE",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "POST_NOTIFICATIONS"
       ]
     },
     "plugins": [
-      "expo-splash-screen"
+      "expo-splash-screen",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#eb0050",
+          "sounds": [],
+          "androidMode": "default",
+          "androidCollapsedTitle": "Flixify"
+        }
+      ]
     ],
     "scheme": "flixify"
   }
