@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../utils/constants';
 
 const { width, height } = Dimensions.get('window');
-const LOGO = require('../../assets/logo.png');
+const LOGO = require('../assets/logo.png');
 
 export default function SplashScreenView({ onFinish }) {
   const logoScale   = useRef(new Animated.Value(0.3)).current;

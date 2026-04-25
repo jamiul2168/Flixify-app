@@ -9,6 +9,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#050508"
     },
+    "assetBundlePatterns": [
+      "src/assets/**"
+    ],
     "android": {
       "package": "com.flixify.app",
       "versionCode": 1,
