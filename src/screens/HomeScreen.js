@@ -85,13 +85,18 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (!allMovies.length) return;
-    const result = allMovies.filter(m => {
+    let result = allMovies.filter(m => {
       const s = m.name.toLowerCase().includes(search.toLowerCase());
       const c = activeCat === 'all'
         || m.categories.some(x => x.toLowerCase() === activeCat.toLowerCase());
-      const b = show18 ? true : !m.isBlurred;
-      return s && c && b;
+      return s && c;
     });
+    // যখন show18 true → 18+ মুভি সামনে আসবে
+    if (show18) {
+      const adult  = result.filter(m => m.isBlurred);
+      const normal = result.filter(m => !m.isBlurred);
+      result = [...adult, ...normal];
+    }
     setFiltered(result);
     setDisplayed(result.slice(0, MOVIES_PER_PAGE));
     setHasMore(result.length > MOVIES_PER_PAGE);
@@ -294,7 +299,7 @@ export default function HomeScreen() {
           ) : null
         }
         renderItem={({ item }) => (
-          <MovieCard movie={item} onPress={openModal} />
+          <MovieCard movie={item} onPress={openModal} show18={show18} />
         )}
       />
 
@@ -379,8 +384,8 @@ const styles = StyleSheet.create({
   btnReq:  { borderColor: 'rgba(124,58,237,0.35)' },
   btn18:   { borderColor: 'rgba(255,45,85,0.35)' },
   btn18On: { backgroundColor: 'rgba(16,185,129,0.12)', borderColor: COLORS.green },
-  catScroll:  { flexGrow: 0 },
-  catContent: { paddingHorizontal: 16, paddingVertical: 8, gap: 8, alignItems: 'center', flexGrow: 0 },
+  catScroll:  { flexShrink: 0, marginVertical: 4 },
+  catContent: { paddingHorizontal: 16, paddingVertical: 6, gap: 8, alignItems: 'center' },
   catChip: {
     paddingHorizontal: 16, paddingVertical: 6,
     backgroundColor: 'rgba(255,255,255,0.05)',

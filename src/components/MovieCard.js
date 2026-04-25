@@ -10,8 +10,10 @@ import { COLORS } from '../utils/constants';
 const { width } = Dimensions.get('window');
 const CARD_W = (width - 48) / 2;
 
-export default function MovieCard({ movie, onPress }) {
+export default function MovieCard({ movie, onPress, show18 }) {
   const scale = useRef(new Animated.Value(1)).current;
+  // isBlurred = 18+ content। show18=true হলে blur সরবে, false হলে blur থাকবে
+  const shouldBlur = movie.isBlurred && !show18;
 
   const onPressIn  = () => Animated.spring(scale, { toValue: 0.95, useNativeDriver: true }).start();
   const onPressOut = () => Animated.spring(scale, { toValue: 1,    useNativeDriver: true }).start();
@@ -29,7 +31,7 @@ export default function MovieCard({ movie, onPress }) {
             source={{ uri: movie.thumbnail }}
             style={styles.img}
             resizeMode="cover"
-            blurRadius={movie.isBlurred ? 18 : 0}
+            blurRadius={shouldBlur ? 18 : 0}
           />
           <LinearGradient
             colors={['transparent', 'rgba(5,5,8,0.92)']}
@@ -58,9 +60,20 @@ export default function MovieCard({ movie, onPress }) {
             <Text style={styles.typeTxt}>{movie.type || 'Movie'}</Text>
           </View>
 
+          {/* 18+ badge সবসময় দেখাবে */}
           {movie.isBlurred && (
-            <View style={styles.blurLabel}>
+            <View style={[styles.blurLabel, !shouldBlur && styles.blurLabelUnlocked]}>
               <Text style={styles.blurLabelTxt}>18+</Text>
+            </View>
+          )}
+
+          {/* blur overlay - hide করলে দেখাবে */}
+          {shouldBlur && (
+            <View style={styles.blurOverlay}>
+              <View style={styles.blurOverlayInner}>
+                <Text style={styles.blurOverlayIcon}>🔞</Text>
+                <Text style={styles.blurOverlayTxt}>Show 18+</Text>
+              </View>
             </View>
           )}
         </View>
@@ -121,12 +134,32 @@ const styles = StyleSheet.create({
   typeTxt:  { color: '#000', fontSize: 9, fontWeight: '800' },
   blurLabel: {
     position: 'absolute',
-    top: 0, right: 0,
+    top: 0, left: 0,
     backgroundColor: COLORS.red,
     paddingHorizontal: 7, paddingVertical: 3,
-    borderBottomLeftRadius: 8, zIndex: 6,
+    borderBottomRightRadius: 8, zIndex: 6,
+  },
+  blurLabelUnlocked: {
+    backgroundColor: COLORS.green,
   },
   blurLabelTxt: { color: '#fff', fontSize: 9, fontWeight: '900' },
+  blurOverlay: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: 'center', justifyContent: 'center',
+    zIndex: 7,
+  },
+  blurOverlayInner: {
+    alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    paddingHorizontal: 10, paddingVertical: 8,
+    borderRadius: 10,
+  },
+  blurOverlayIcon: { fontSize: 22 },
+  blurOverlayTxt: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 9, fontWeight: '700',
+  },
   info:    { paddingHorizontal: 10, paddingVertical: 8 },
   title:   { color: COLORS.white, fontSize: 12, fontWeight: '700', letterSpacing: 0.2 },
 });

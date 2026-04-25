@@ -11,10 +11,12 @@ import * as Clipboard from 'expo-clipboard';
 import { COLORS } from '../utils/constants';
 
 const { width, height } = Dimensions.get('window');
+const MODAL_IMG_WIDTH = width - 40; // paddingHorizontal 20 * 2
 
 export default function MovieModal({ movie, visible, onClose }) {
   const [copied, setCopied] = useState(false);
   const [selEp,  setSelEp]  = useState(null);
+  const [ssSize, setSsSize] = useState(null); // screenshot dynamic size
 
   if (!movie) return null;
 
@@ -109,11 +111,21 @@ export default function MovieModal({ movie, visible, onClose }) {
 
               {/* Screenshot */}
               {movie.screenshot ? (
-                <Image
-                  source={{ uri: movie.screenshot }}
-                  style={styles.screenshot}
-                  resizeMode="cover"
-                />
+                <View style={styles.screenshotWrap}>
+                  <Text style={styles.secLabel}>Screenshot</Text>
+                  <Image
+                    source={{ uri: movie.screenshot }}
+                    style={[
+                      styles.screenshot,
+                      ssSize ? { height: ssSize } : { aspectRatio: 16 / 9 },
+                    ]}
+                    resizeMode="cover"
+                    onLoad={({ nativeEvent: { source } }) => {
+                      const ratio = source.height / source.width;
+                      setSsSize(Math.round(MODAL_IMG_WIDTH * ratio));
+                    }}
+                  />
+                </View>
               ) : null}
 
               {/* Actions */}
@@ -272,13 +284,23 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   trailerTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  screenshotWrap: {
+    marginBottom: 16,
+  },
+  secLabel: {
+    color: COLORS.gray,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 8,
+  },
   screenshot: {
     width: '100%',
-    height: 185,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: COLORS.border,
-    marginBottom: 16,
+    backgroundColor: '#0a0a10',
   },
   actionRow: {
     flexDirection: 'row',
