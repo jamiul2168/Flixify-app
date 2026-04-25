@@ -4,21 +4,21 @@
     "slug": "flixifyapp",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./src/assets/logo.png",
+    "icon": "./assets/logo.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./src/assets/logo.png",
+      "image": "./assets/logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#050508"
     },
     "assetBundlePatterns": [
-      "src/assets/**"
+      "**/*"
     ],
     "android": {
       "package": "com.flixify.app",
       "versionCode": 1,
       "adaptiveIcon": {
-        "foregroundImage": "./src/assets/logo.png",
+        "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#050508"
       },
       "permissions": [
