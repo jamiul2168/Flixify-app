@@ -60,12 +60,7 @@ export default function MovieCard({ movie, onPress, show18 }) {
             <Text style={styles.typeTxt}>{movie.type || 'Movie'}</Text>
           </View>
 
-          {/* 18+ badge সবসময় দেখাবে */}
-          {movie.isBlurred && (
-            <View style={[styles.blurLabel, !shouldBlur && styles.blurLabelUnlocked]}>
-              <Text style={styles.blurLabelTxt}>18+</Text>
-            </View>
-          )}
+
 
           {/* blur overlay - hide করলে দেখাবে */}
           {shouldBlur && (
