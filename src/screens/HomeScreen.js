@@ -14,10 +14,11 @@ import {
 import { fetchMovies } from '../utils/api';
 import MovieCard from '../components/MovieCard';
 import MovieModal from '../components/MovieModal';
+import { SkeletonGrid } from '../components/SkeletonCard';
 
 const { width } = Dimensions.get('window');
 
-export default function HomeScreen() {
+export default function HomeScreen({ initialSearch = false, showTrending = false }) {
   const insets = useSafeAreaInsets();
 
   const [allMovies,    setAllMovies]    = useState([]);
@@ -116,6 +117,43 @@ export default function HomeScreen() {
     }
   }, [search, allMovies]);
 
+  const searchRef = useRef(null);
+  const refreshRotate = useRef(new Animated.Value(0)).current;
+
+  // initialSearch prop থাকলে search focus করো
+  useEffect(() => {
+    if (initialSearch && searchRef.current) {
+      setTimeout(() => searchRef.current?.focus(), 300);
+    }
+  }, [initialSearch]);
+
+  // showTrending prop থাকলে trending category select করো
+  useEffect(() => {
+    if (showTrending && categories.length > 1) {
+      // "Trending" বা "Action" ক্যাটাগরি select করো
+      const trending = categories.find(c =>
+        c.toLowerCase().includes('trending') || c.toLowerCase().includes('popular')
+      );
+      if (trending) setActiveCat(trending.toLowerCase());
+    }
+  }, [showTrending, categories]);
+
+  // Pull-to-refresh spin animation
+  const startRefreshAnim = () => {
+    refreshRotate.setValue(0);
+    Animated.loop(
+      Animated.timing(refreshRotate, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      })
+    ).start();
+  };
+
+  const stopRefreshAnim = () => {
+    refreshRotate.stopAnimation();
+  };
+
   const loadMore = () => {
     if (!hasMore) return;
     const np   = page + 1;
@@ -131,13 +169,20 @@ export default function HomeScreen() {
     setShowSugg(false);
   };
 
+  // Loading → skeleton grid দেখাও (header সহ)
   if (loading) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-        <Text style={styles.logoText}>Flixify</Text>
-        <ActivityIndicator size="large" color={COLORS.cyan} style={{ marginTop: 24 }} />
-        <Text style={styles.loadTxt}>Loading...</Text>
+        {/* Header skeleton */}
+        <View style={styles.header}>
+          <Text style={styles.logo}>Flixify</Text>
+          <View style={[styles.searchBox, { opacity: 0.4 }]}>
+            <Ionicons name="search" size={15} color={COLORS.cyan} style={{ marginRight: 8 }} />
+            <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 13 }}>Loading...</Text>
+          </View>
+        </View>
+        <SkeletonGrid />
       </View>
     );
   }
@@ -169,6 +214,7 @@ export default function HomeScreen() {
         <View style={styles.searchBox}>
           <Ionicons name="search" size={15} color={COLORS.cyan} style={{ marginRight: 8 }} />
           <TextInput
+            ref={searchRef}
             style={styles.searchInput}
             placeholder="Search movies & series..."
             placeholderTextColor="rgba(255,255,255,0.3)"
@@ -275,8 +321,14 @@ export default function HomeScreen() {
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
-            onRefresh={() => { setRefreshing(true); load(); }}
+            onRefresh={() => {
+              setRefreshing(true);
+              startRefreshAnim();
+              load().finally(() => stopRefreshAnim());
+            }}
             tintColor={COLORS.cyan}
+            colors={[COLORS.cyan]}
+            progressBackgroundColor="#0e0e14"
           />
         }
         ListHeaderComponent={

@@ -21,4 +21,5 @@ export const DOMAIN = 'new1.flixify.jhtone.site';
 
 export const TELEGRAM_URL = 'https://t.me/flixifyofficialgrp';
 export const REQUEST_URL  = 'https://request.flixify.jhtone.site/';
+export const AD_GATEWAY   = 'https://www.profitablecpmratenetwork.com/y66v10fk?key=452bac688b016ffbca9267b166075e71';
 export const MOVIES_PER_PAGE = 18;
