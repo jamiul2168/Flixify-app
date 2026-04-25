@@ -16,6 +16,8 @@ import MovieCard from '../components/MovieCard';
 import MovieModal from '../components/MovieModal';
 import { SkeletonGrid } from '../components/SkeletonCard';
 
+const LOGO = require('../../assets/logo.png');
+
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ initialSearch = false, showTrending = false }) {
@@ -387,6 +389,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   logo: { color: COLORS.cyan, fontSize: 20, fontWeight: '900', letterSpacing: -0.5 },
+  headerLogo: { width: 90, height: 36 },
   searchBox: {
     flex: 1, flexDirection: 'row', alignItems: 'center',
     backgroundColor: 'rgba(255,255,255,0.05)',

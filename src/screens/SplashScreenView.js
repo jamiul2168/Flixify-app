@@ -1,11 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import {
-  View, Text, StyleSheet, Animated, Dimensions, StatusBar,
+  View, Text, StyleSheet, Animated, Dimensions, StatusBar, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../utils/constants';
 
 const { width, height } = Dimensions.get('window');
+const LOGO = require('../../assets/logo.png');
 
 export default function SplashScreenView({ onFinish }) {
   const logoScale   = useRef(new Animated.Value(0.3)).current;
@@ -82,15 +83,9 @@ export default function SplashScreenView({ onFinish }) {
         styles.logoWrap,
         { opacity: logoOpacity, transform: [{ scale: logoScale }] },
       ]}>
-        {/* Icon box */}
-        <LinearGradient
-          colors={['#00e5ff22', '#00e5ff08']}
-          style={styles.iconBox}
-        >
-          <Text style={styles.iconEmoji}>🎬</Text>
-        </LinearGradient>
+        {/* Actual Logo */}
+        <Image source={LOGO} style={styles.logoImg} resizeMode="contain" />
 
-        <Text style={styles.logoText}>Flixify</Text>
         <Animated.Text style={[styles.tagText, { opacity: tagOpacity }]}>
           Movies & Series — All in One
         </Animated.Text>
@@ -137,22 +132,9 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 60,
   },
-  iconBox: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(0,229,255,0.2)',
-    marginBottom: 4,
-  },
-  iconEmoji: { fontSize: 38 },
-  logoText: {
-    color: '#00e5ff',
-    fontSize: 42,
-    fontWeight: '900',
-    letterSpacing: -1.5,
+  logoImg: {
+    width: 180,
+    height: 180,
   },
   tagText: {
     color: 'rgba(255,255,255,0.4)',
