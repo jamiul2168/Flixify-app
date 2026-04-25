@@ -7,9 +7,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as WebBrowser from 'expo-web-browser';
 import {
-  COLORS, MOVIES_PER_PAGE, TELEGRAM_URL, REQUEST_URL,
+  COLORS, MOVIES_PER_PAGE,
 } from '../utils/constants';
 import { fetchMovies } from '../utils/api';
 import MovieCard from '../components/MovieCard';
@@ -263,30 +262,14 @@ export default function HomeScreen({ initialSearch = false, showTrending = false
         </Animated.Text>
       </View>
 
-      {/* BUTTONS */}
+      {/* 18+ TOGGLE */}
       <View style={styles.btnRow}>
-        <TouchableOpacity
-          style={[styles.navBtn, styles.btnTg]}
-          onPress={() => WebBrowser.openBrowserAsync(TELEGRAM_URL)}
-        >
-          <Ionicons name="paper-plane" size={13} color="#fff" />
-          <Text style={styles.navBtnTxt}>Telegram</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.navBtn, styles.btnReq]}
-          onPress={() => WebBrowser.openBrowserAsync(REQUEST_URL)}
-        >
-          <Ionicons name="add-circle-outline" size={13} color="#fff" />
-          <Text style={styles.navBtnTxt}>Request</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity
           style={[styles.navBtn, styles.btn18, show18 && styles.btn18On]}
           onPress={() => setShow18(p => !p)}
         >
           <Ionicons name={show18 ? 'eye' : 'eye-off'} size={13} color="#fff" />
-          <Text style={styles.navBtnTxt}>{show18 ? 'Hide 18+' : '18+'}</Text>
+          <Text style={styles.navBtnTxt}>{show18 ? 'Hide 18+' : 'Show 18+'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -435,8 +418,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.04)',
   },
   navBtnTxt: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  btnTg:   { borderColor: 'rgba(0,229,255,0.3)' },
-  btnReq:  { borderColor: 'rgba(124,58,237,0.35)' },
+
   btn18:   { borderColor: 'rgba(255,45,85,0.35)' },
   btn18On: { backgroundColor: 'rgba(16,185,129,0.12)', borderColor: COLORS.green },
   catScroll:  { flexShrink: 0, marginVertical: 4 },

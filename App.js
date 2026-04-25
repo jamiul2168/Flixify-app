@@ -11,12 +11,21 @@ SplashScreen.preventAutoHideAsync();
 
 function AppContent() {
   const insets = useSafeAreaInsets();
-  const [splashDone, setSplashDone] = useState(false);
-  const [activeTab, setActiveTab]   = useState('home');
+  const [splashDone,  setSplashDone]  = useState(false);
+  const [activeTab,   setActiveTab]   = useState('home');
+  const [searchKey,   setSearchKey]   = useState(0);
 
   const onLayout = useCallback(async () => {
     await SplashScreen.hideAsync();
   }, []);
+
+  const handleTabChange = (tab) => {
+    if (tab === 'search') {
+      // Every time Search is tapped, bump the key → forces re-mount → focus triggers
+      setSearchKey(k => k + 1);
+    }
+    setActiveTab(tab);
+  };
 
   return (
     <View
@@ -30,15 +39,15 @@ function AppContent() {
 
       {/* Main content */}
       <View style={styles.content}>
-        {activeTab === 'home'     && <HomeScreen />}
-        {activeTab === 'search'   && <HomeScreen initialSearch={true} />}
-        {activeTab === 'trending' && <HomeScreen showTrending={true} />}
-        {activeTab === 'settings' && <HomeScreen />}
+        {(activeTab === 'home') && <HomeScreen />}
+        {(activeTab === 'search') && (
+          <HomeScreen key={`search-${searchKey}`} initialSearch={true} />
+        )}
       </View>
 
       {/* Bottom Nav */}
       {splashDone && (
-        <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+        <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
       )}
     </View>
   );

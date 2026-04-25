@@ -1,22 +1,109 @@
 import React, { useRef, useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Animated, Dimensions,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS } from '../utils/constants';
+import * as WebBrowser from 'expo-web-browser';
+import { COLORS, TELEGRAM_URL, REQUEST_URL } from '../utils/constants';
 
+// ── Official Telegram Icon (SVG-accurate paper-plane in blue circle) ──────────
+function TelegramIcon({ size = 24 }) {
+  const r = size / 2;
+  // We build this purely with Views to match Telegram's actual logo:
+  // Blue circle, white arrow pointing upper-right, with folded lower tail
+  return (
+    <View style={{
+      width: size,
+      height: size,
+      borderRadius: r,
+      backgroundColor: '#2AABEE',
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    }}>
+      {/* Paper plane body — rotated white triangle pointing right-up */}
+      {/* Main diagonal arm (upper-left to lower-right arrow body) */}
+      <View style={{
+        position: 'absolute',
+        width: size * 0.56,
+        height: size * 0.10,
+        backgroundColor: '#fff',
+        borderRadius: size * 0.05,
+        top: size * 0.37,
+        left: size * 0.18,
+        transform: [{ rotate: '-38deg' }],
+      }} />
+      {/* Arrowhead right tip */}
+      <View style={{
+        position: 'absolute',
+        top: size * 0.26,
+        left: size * 0.52,
+        width: 0,
+        height: 0,
+        borderStyle: 'solid',
+        borderLeftWidth: size * 0.20,
+        borderTopWidth: size * 0.10,
+        borderBottomWidth: size * 0.10,
+        borderLeftColor: '#fff',
+        borderTopColor: 'transparent',
+        borderBottomColor: 'transparent',
+        transform: [{ rotate: '-38deg' }],
+      }} />
+      {/* Lower fold / tail of the plane */}
+      <View style={{
+        position: 'absolute',
+        width: size * 0.22,
+        height: size * 0.09,
+        backgroundColor: 'rgba(255,255,255,0.80)',
+        borderRadius: size * 0.04,
+        top: size * 0.54,
+        left: size * 0.30,
+        transform: [{ rotate: '20deg' }],
+      }} />
+    </View>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 const TABS = [
-  { key: 'home',     label: 'Home',    icon: 'home',           iconOff: 'home-outline' },
-  { key: 'search',   label: 'Search',  icon: 'search',         iconOff: 'search-outline' },
-  { key: 'trending', label: 'Trending',icon: 'flame',          iconOff: 'flame-outline' },
-  { key: 'settings', label: 'Settings',icon: 'settings',       iconOff: 'settings-outline' },
+  {
+    key: 'home',
+    label: 'Home',
+    icon: 'home',
+    iconOff: 'home-outline',
+    type: 'tab',
+  },
+  {
+    key: 'search',
+    label: 'Search',
+    icon: 'search',
+    iconOff: 'search-outline',
+    type: 'tab',
+  },
+  {
+    key: 'request',
+    label: 'Request',
+    icon: 'add-circle',
+    iconOff: 'add-circle-outline',
+    type: 'link',
+    url: REQUEST_URL,
+    color: '#7c3aed',
+  },
+  {
+    key: 'telegram',
+    label: 'Telegram',
+    type: 'link',
+    url: TELEGRAM_URL,
+    color: '#2AABEE',
+    customIcon: true,
+  },
 ];
 
 function TabItem({ tab, active, onPress }) {
-  const scale  = useRef(new Animated.Value(1)).current;
-  const dotOp  = useRef(new Animated.Value(active ? 1 : 0)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+  const dotOp = useRef(new Animated.Value(active ? 1 : 0)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -33,37 +120,66 @@ function TabItem({ tab, active, onPress }) {
     ]).start();
   }, [active]);
 
+  const isLink = tab.type === 'link';
+  const iconColor = isLink ? tab.color : (active ? COLORS.cyan : 'rgba(255,255,255,0.35)');
+
   return (
-    <TouchableOpacity
-      style={styles.tab}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
+    <TouchableOpacity style={styles.tab} onPress={onPress} activeOpacity={0.7}>
       <Animated.View style={[styles.tabInner, { transform: [{ scale }] }]}>
-        {active && (
+        {/* Background glow */}
+        {!isLink && active && (
           <LinearGradient
             colors={['rgba(0,229,255,0.18)', 'rgba(0,229,255,0.05)']}
             style={styles.activeBg}
           />
         )}
-        <Ionicons
-          name={active ? tab.icon : tab.iconOff}
-          size={22}
-          color={active ? COLORS.cyan : 'rgba(255,255,255,0.35)'}
-        />
-        <Text style={[styles.tabLabel, active && styles.tabLabelActive]}>
+        {isLink && (
+          <LinearGradient
+            colors={[`${tab.color}22`, `${tab.color}08`]}
+            style={styles.activeBg}
+          />
+        )}
+
+        {/* Icon */}
+        {tab.customIcon
+          ? <TelegramIcon size={24} />
+          : (
+            <Ionicons
+              name={(!isLink && active) ? tab.icon : tab.iconOff}
+              size={22}
+              color={iconColor}
+            />
+          )
+        }
+
+        <Text style={[
+          styles.tabLabel,
+          !isLink && active && styles.tabLabelActive,
+          isLink && { color: tab.color },
+        ]}>
           {tab.label}
         </Text>
-        <Animated.View style={[styles.dot, { opacity: dotOp }]} />
+
+        {/* Active dot — only for real tabs */}
+        {!isLink && (
+          <Animated.View style={[styles.dot, { opacity: dotOp }]} />
+        )}
       </Animated.View>
     </TouchableOpacity>
   );
 }
 
 export default function BottomNav({ activeTab, onTabChange }) {
+  const handlePress = (tab) => {
+    if (tab.type === 'link') {
+      WebBrowser.openBrowserAsync(tab.url);
+    } else {
+      onTabChange(tab.key);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      {/* Top border glow */}
       <View style={styles.topBorder} />
       <View style={styles.nav}>
         {TABS.map(tab => (
@@ -71,7 +187,7 @@ export default function BottomNav({ activeTab, onTabChange }) {
             key={tab.key}
             tab={tab}
             active={activeTab === tab.key}
-            onPress={() => onTabChange(tab.key)}
+            onPress={() => handlePress(tab)}
           />
         ))}
       </View>
@@ -102,7 +218,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 3,
     paddingVertical: 6,
-    paddingHorizontal: 14,
+    paddingHorizontal: 10,
     borderRadius: 14,
     overflow: 'hidden',
     position: 'relative',

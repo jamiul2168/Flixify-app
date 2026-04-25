@@ -183,7 +183,49 @@ export default function MovieModal({ movie, visible, onClose }) {
 
   const handleShare = async () => {
     try {
-      await Share.share({ message: `${movie.name} — Flixify তে দেখুন!` });
+      const cats      = (movie.categories || []).slice(0, 3).join(' • ');
+      const type      = movie.type   ? movie.type   : '';
+      const rating    = movie.rating ? movie.rating  : '';
+      const year      = movie.year   ? movie.year    : '';
+      const lang      = movie.language ? movie.language : '';
+      const quality   = movie.quality  ? movie.quality  : '';
+      const thumbnail = movie.thumbnail || '';
+
+      // Rich share card
+      const lines = [
+        `🎬 ${movie.name}`,
+        type || year || lang ? [
+          type    ? `📁 ${type}`        : null,
+          year    ? `📅 ${year}`        : null,
+          lang    ? `🌐 ${lang}`        : null,
+          quality ? `🎞️ ${quality}`     : null,
+        ].filter(Boolean).join('  |  ') : null,
+        ``,
+        cats   ? `🎭 Genre : ${cats}` : null,
+        rating ? `⭐ Rating : ${rating}` : null,
+        ``,
+        thumbnail ? `🖼️ ${thumbnail}` : null,
+        ``,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        `📲 Watch FREE on Flixify App`,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        ``,
+        `💬 Join Telegram Community`,
+        `👉 https://t.me/flixifyofficialgrp`,
+        ``,
+        `🎯 Request a Movie / Series`,
+        `👉 https://request.flixify.jhtone.site/`,
+        ``,
+        `━━━━━━━━━━━━━━━━━━━━`,
+        `#Flixify #FreeBD #BanglaMovie #HindiDubbed`,
+      ].filter(l => l !== null).join('\n');
+
+      await Share.share({
+        message: lines,
+        title: `${movie.name} — Flixify`,
+        // url only on iOS — thumbnail link so preview card appears
+        url: thumbnail || 'https://t.me/flixifyofficialgrp',
+      });
     } catch (_) {}
   };
 
@@ -292,8 +334,13 @@ export default function MovieModal({ movie, visible, onClose }) {
 
                 {/* Actions */}
                 <View style={styles.actionRow}>
-                  <TouchableOpacity style={styles.actionBtn} onPress={handleShare}>
-                    <Ionicons name="share-social-outline" size={18} color={COLORS.cyan} />
+                  <TouchableOpacity style={[styles.actionBtn, styles.actionShare]} onPress={handleShare}>
+                    <LinearGradient
+                      colors={['rgba(0,229,255,0.15)', 'rgba(0,114,255,0.1)']}
+                      start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                      style={StyleSheet.absoluteFill}
+                    />
+                    <Ionicons name="share-social" size={17} color={COLORS.cyan} />
                     <Text style={[styles.actionTxt, { color: COLORS.cyan }]}>Share</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -499,6 +546,10 @@ const styles = StyleSheet.create({
     borderRadius: 30, borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.07)',
     backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  actionShare: {
+    borderColor: 'rgba(0,229,255,0.3)',
+    overflow: 'hidden',
   },
   actionBtnGreen: {
     borderColor: COLORS.green, backgroundColor: 'rgba(16,185,129,0.1)',
