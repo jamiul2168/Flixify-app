@@ -9,57 +9,48 @@ const { width, height } = Dimensions.get('window');
 const LOGO = require('../assets/logo.png');
 
 export default function SplashScreenView({ onFinish }) {
-  const logoScale   = useRef(new Animated.Value(0.3)).current;
-  const logoOpacity = useRef(new Animated.Value(0)).current;
-  const tagOpacity  = useRef(new Animated.Value(0)).current;
-  const barWidth    = useRef(new Animated.Value(0)).current;
+  const logoScale     = useRef(new Animated.Value(0.4)).current;
+  const logoOpacity   = useRef(new Animated.Value(0)).current;
+  const tagOpacity    = useRef(new Animated.Value(0)).current;
+  const barWidth      = useRef(new Animated.Value(0)).current;
   const screenOpacity = useRef(new Animated.Value(1)).current;
-
-  // Glow pulse
-  const glowAnim = useRef(new Animated.Value(0.4)).current;
+  const glowAnim      = useRef(new Animated.Value(0.3)).current;
 
   useEffect(() => {
-    // Glow loop
     const glow = Animated.loop(
       Animated.sequence([
-        Animated.timing(glowAnim, { toValue: 1, duration: 900, useNativeDriver: true }),
-        Animated.timing(glowAnim, { toValue: 0.4, duration: 900, useNativeDriver: true }),
+        Animated.timing(glowAnim, { toValue: 0.9, duration: 1000, useNativeDriver: true }),
+        Animated.timing(glowAnim, { toValue: 0.3, duration: 1000, useNativeDriver: true }),
       ])
     );
     glow.start();
 
-    // Main sequence
     Animated.sequence([
-      // Logo pop in
       Animated.parallel([
         Animated.spring(logoScale, {
           toValue: 1,
-          tension: 60,
-          friction: 6,
+          tension: 55,
+          friction: 7,
           useNativeDriver: true,
         }),
         Animated.timing(logoOpacity, {
           toValue: 1,
-          duration: 500,
+          duration: 600,
           useNativeDriver: true,
         }),
       ]),
-      // Tagline fade in
       Animated.timing(tagOpacity, {
         toValue: 1,
         duration: 400,
         delay: 100,
         useNativeDriver: true,
       }),
-      // Progress bar fill
       Animated.timing(barWidth, {
-        toValue: width * 0.55,
-        duration: 1000,
+        toValue: width * 0.5,
+        duration: 1100,
         useNativeDriver: false,
       }),
-      // Hold briefly
       Animated.delay(300),
-      // Fade out screen
       Animated.timing(screenOpacity, {
         toValue: 0,
         duration: 400,
@@ -73,35 +64,29 @@ export default function SplashScreenView({ onFinish }) {
 
   return (
     <Animated.View style={[styles.container, { opacity: screenOpacity }]}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+      <StatusBar barStyle="light-content" backgroundColor="#050508" />
 
-      {/* Background radial glow */}
+      {/* Glow behind logo */}
       <Animated.View style={[styles.glow, { opacity: glowAnim }]} />
 
-      {/* Logo area */}
+      {/* Logo — লোগোতেই Flixify লেখা আছে, আলাদা টেক্সট নেই */}
       <Animated.View style={[
         styles.logoWrap,
         { opacity: logoOpacity, transform: [{ scale: logoScale }] },
       ]}>
-        {/* App Logo */}
         <Image source={LOGO} style={styles.logoImg} resizeMode="contain" />
-
-        {/* App Name */}
-        <Animated.View style={[styles.appNameRow, { opacity: tagOpacity }]}>
-          <Text style={styles.appNameRed}>Flixi</Text>
-          <Text style={styles.appNameBlue}>fy</Text>
-        </Animated.View>
-
-        <Animated.Text style={[styles.tagText, { opacity: tagOpacity }]}>
-          Movies & Series — All in One
-        </Animated.Text>
       </Animated.View>
 
+      {/* Tagline */}
+      <Animated.Text style={[styles.tagText, { opacity: tagOpacity }]}>
+        Movies &amp; Series — All in One
+      </Animated.Text>
+
       {/* Progress bar */}
-      <Animated.View style={[styles.barTrack]}>
+      <Animated.View style={styles.barTrack}>
         <Animated.View style={[styles.barFill, { width: barWidth }]}>
           <LinearGradient
-            colors={['#00e5ff', '#0072ff']}
+            colors={['#ff2d8d', '#7c3aed', '#1a6eff']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={StyleSheet.absoluteFill}
@@ -119,55 +104,38 @@ export default function SplashScreenView({ onFinish }) {
 const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: COLORS.bg,
+    backgroundColor: '#050508',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 999,
   },
   glow: {
     position: 'absolute',
-    width: 320,
-    height: 320,
-    borderRadius: 160,
-    backgroundColor: 'rgba(0,229,255,0.07)',
-    top: height / 2 - 220,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(180,0,120,0.10)',
     alignSelf: 'center',
+    top: height / 2 - 200,
   },
   logoWrap: {
     alignItems: 'center',
-    gap: 12,
-    marginBottom: 60,
+    marginBottom: 28,
   },
   logoImg: {
-    width: 120,
-    height: 120,
-  },
-  appNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  appNameRed: {
-    fontSize: 34,
-    fontWeight: '900',
-    color: '#eb0050',
-    letterSpacing: -1,
-  },
-  appNameBlue: {
-    fontSize: 34,
-    fontWeight: '900',
-    color: '#1a6eff',
-    letterSpacing: -1,
+    width: 110,
+    height: 110,
+    borderRadius: 24,
   },
   tagText: {
-    color: 'rgba(255,255,255,0.35)',
+    color: 'rgba(255,255,255,0.30)',
     fontSize: 12,
     fontWeight: '500',
-    letterSpacing: 0.5,
-    marginTop: 4,
+    letterSpacing: 0.8,
+    marginBottom: 32,
   },
   barTrack: {
-    width: width * 0.55,
+    width: width * 0.5,
     height: 3,
     backgroundColor: 'rgba(255,255,255,0.07)',
     borderRadius: 10,
@@ -179,10 +147,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   loadingTxt: {
-    color: 'rgba(255,255,255,0.25)',
+    color: 'rgba(255,255,255,0.22)',
     fontSize: 11,
     marginTop: 14,
-    letterSpacing: 1,
+    letterSpacing: 1.2,
     fontWeight: '500',
   },
 });
