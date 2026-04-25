@@ -4,8 +4,10 @@
     "slug": "flixifyapp",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./src/assets/logo.png",
     "userInterfaceStyle": "dark",
     "splash": {
+      "image": "./src/assets/logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#050508"
     },
@@ -15,6 +17,10 @@
     "android": {
       "package": "com.flixify.app",
       "versionCode": 1,
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/logo.png",
+        "backgroundColor": "#050508"
+      },
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE"
