@@ -16,13 +16,23 @@ export const COLORS = {
   grayDim: 'rgba(255,255,255,0.06)',
 };
 
+// ── GAS Endpoints ──────────────────────────────────────────────────────────────
+// Movie data API (getMovieData)
 export const API_URL =
   'https://script.google.com/macros/s/AKfycbx-rB3PNtoZVc6pm3GXq4kAeQkzvOTDkhJkL-XIQSIauG02Pp8gVMTA73bwb4MGvuMytg/exec';
 
+// App settings + users + notifications API
+export const APPS_SCRIPT_URL =
+  'https://script.google.com/macros/s/AKfycbwtS79w-8doHBbTv48j2eINoew1mlaofDVX2IIhDYfAQG6MXkkn6pgyaU6r24Ss8gPlFQ/exec';
+
 export const DOMAIN = 'new1.flixify.jhtone.site';
 
-export const TELEGRAM_URL = 'https://t.me/flixifyofficialgrp';
-export const REQUEST_URL  = 'https://request.flixify.jhtone.site/';
-export const AD_GATEWAY   = 'https://www.profitablecpmratenetwork.com/y66v10fk?key=452bac688b016ffbca9267b166075e71';
-export const MOVIES_PER_PAGE = 18;
-export const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtS79w-8doHBbTv48j2eINoew1mlaofDVX2IIhDYfAQG6MXkkn6pgyaU6r24Ss8gPlFQ/exec';
+// ── Default values (GAS Settings দিয়ে override হবে) ──────────────────────────
+export const DEFAULT_TELEGRAM_URL    = 'https://t.me/flixifyofficialgrp';
+export const DEFAULT_REQUEST_URL     = 'https://request.flixify.jhtone.site/';
+export const DEFAULT_AD_GATEWAY      = 'https://www.profitablecpmratenetwork.com/y66v10fk?key=452bac688b016ffbca9267b166075e71';
+export const DEFAULT_MOVIES_PER_PAGE = 18;
+export const DEFAULT_TICKER_TEXT     = '🎬 Welcome to Flixify App!   •   নতুন মুভি পেতে Telegram গ্রুপে join করুন   •   Request করুন আপনার পছন্দের মুভি 🔥';
+
+// App version — force update check-এ ব্যবহার হবে
+export const APP_VERSION = '1.0.0';

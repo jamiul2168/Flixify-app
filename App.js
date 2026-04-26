@@ -1,37 +1,60 @@
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
-import * as Notifications from 'expo-notifications';
 import { Animated } from 'react-native';
 
 import HomeScreen from './src/screens/HomeScreen';
 import SplashScreenView from './src/screens/SplashScreenView';
+import MaintenanceScreen from './src/screens/MaintenanceScreen';
 import BottomNav from './src/components/BottomNav';
 import NotificationBanner from './src/components/NotificationBanner';
+import ForceUpdateModal from './src/components/ForceUpdateModal';
 
 import {
   registerForPushNotifications,
   pingServer,
   fetchLiveUserCount,
   fetchNotifications,
+  setupNotificationListeners,
 } from './src/utils/notifications';
+import {
+  AppSettingsProvider,
+  useAppSettings,
+  needsForceUpdate,
+} from './src/utils/AppSettings';
 
 SplashScreen.preventAutoHideAsync();
 
 function AppContent() {
   const insets = useSafeAreaInsets();
-  const [splashDone,      setSplashDone]      = useState(false);
-  const [activeTab,       setActiveTab]       = useState('home');
-  const [show18,          setShow18]          = useState(false);
-  const [liveCount,       setLiveCount]       = useState(0);
-  const [activeBanner,    setActiveBanner]    = useState(null);
-  const [lastNotifId,     setLastNotifId]     = useState(0);
-  const pushToken                             = useRef(null);
-  const pulseAnim                             = useRef(new Animated.Value(1)).current;
+  const { settings, loading: settingsLoading, reload: reloadSettings } = useAppSettings();
 
-  // ── Pulse animation for live badge ────────────────────────────────────────
+  const [splashDone,   setSplashDone]   = useState(false);
+  const [activeTab,    setActiveTab]    = useState('home');
+  const [show18,       setShow18]       = useState(false);
+  const [liveCount,    setLiveCount]    = useState(0);
+  const [activeBanner, setActiveBanner] = useState(null);
+  const [lastNotifId,  setLastNotifId]  = useState(0);
+  const pushToken                       = useRef(null);
+  const pulseAnim                       = useRef(new Animated.Value(1)).current;
+
+  // ── Force update দরকার কিনা ───────────────────────────────────────────────
+  const forceUpdate = splashDone && needsForceUpdate(settings);
+
+  // ── Maintenance mode ──────────────────────────────────────────────────────
+  const inMaintenance = splashDone && settings.maintenanceMode;
+
+  // ── Banner popup (from GAS settings) ─────────────────────────────────────
+  useEffect(() => {
+    if (!splashDone) return;
+    if (settings.bannerEnabled && settings.bannerTitle) {
+      setActiveBanner({ title: settings.bannerTitle, body: settings.bannerMessage });
+    }
+  }, [splashDone, settings.bannerEnabled, settings.bannerTitle]);
+
+  // ── Pulse animation for live badge ───────────────────────────────────────
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
@@ -43,25 +66,24 @@ function AppContent() {
     return () => loop.stop();
   }, []);
 
-  // ── Push notification setup ────────────────────────────────────────────────
+  // ── Push notification setup ───────────────────────────────────────────────
   useEffect(() => {
+    // Token নেওয়া ও GAS-এ পাঠানো
     (async () => {
       const token = await registerForPushNotifications();
       pushToken.current = token;
       if (token) await pingServer(token);
     })();
 
-    // Notification received while app is open
-    const sub = Notifications.addNotificationReceivedListener(notif => {
-      setActiveBanner({
-        title: notif.request.content.title || 'Flixify',
-        body:  notif.request.content.body  || '',
-      });
+    // Foreground receive + tray tap listener
+    const cleanup = setupNotificationListeners({
+      onReceive: ({ title, body }) => setActiveBanner({ title, body }),
+      onTap:     ({ title, body }) => setActiveBanner({ title, body }),
     });
-    return () => sub.remove();
+    return cleanup;
   }, []);
 
-  // ── Live user count — প্রতি 30s আপডেট ────────────────────────────────────
+  // ── Live user count — প্রতি 30s ──────────────────────────────────────────
   useEffect(() => {
     const tick = async () => {
       const count = await fetchLiveUserCount();
@@ -72,7 +94,7 @@ function AppContent() {
     return () => clearInterval(interval);
   }, []);
 
-  // ── Notification poll — প্রতি 60s চেক ────────────────────────────────────
+  // ── Notification poll — প্রতি 60s ────────────────────────────────────────
   useEffect(() => {
     const checkNotifs = async () => {
       const notifs = await fetchNotifications(lastNotifId);
@@ -86,7 +108,7 @@ function AppContent() {
     return () => clearInterval(interval);
   }, [lastNotifId]);
 
-  // ── Ping every 5 min to keep user count live ──────────────────────────────
+  // ── Ping every 5 min ─────────────────────────────────────────────────────
   useEffect(() => {
     const interval = setInterval(() => {
       pingServer(pushToken.current);
@@ -103,24 +125,42 @@ function AppContent() {
       style={[styles.root, { paddingBottom: insets.bottom }]}
       onLayout={onLayout}
     >
+      {/* Splash */}
       {!splashDone && (
         <SplashScreenView onFinish={() => setSplashDone(true)} />
       )}
 
-      <View style={styles.content}>
-        <HomeScreen
-          show18={show18}
-          liveCount={liveCount}
-          pulseAnim={pulseAnim}
-        />
-      </View>
+      {/* Force update — সব কিছু block করে */}
+      <ForceUpdateModal
+        visible={forceUpdate}
+        settings={settings}
+      />
 
-      {splashDone && (
+      {/* Maintenance */}
+      {inMaintenance && !forceUpdate ? (
+        <MaintenanceScreen
+          message={settings.maintenanceMessage}
+          onRetry={reloadSettings}
+        />
+      ) : (
+        <View style={styles.content}>
+          <HomeScreen
+            show18={show18}
+            liveCount={liveCount}
+            pulseAnim={pulseAnim}
+            settings={settings}
+          />
+        </View>
+      )}
+
+      {/* Bottom Nav */}
+      {splashDone && !forceUpdate && (
         <BottomNav
           activeTab={activeTab}
           onTabChange={setActiveTab}
           show18={show18}
           onToggle18={() => setShow18(p => !p)}
+          settings={settings}
         />
       )}
 
@@ -139,7 +179,9 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AppContent />
+        <AppSettingsProvider>
+          <AppContent />
+        </AppSettingsProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

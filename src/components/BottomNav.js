@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
-import { COLORS, TELEGRAM_URL, REQUEST_URL } from '../utils/constants';
+import { COLORS } from '../utils/constants';
 
 const TABS = [
   {
@@ -23,7 +23,7 @@ const TABS = [
     icon: 'add-circle',
     iconOff: 'add-circle-outline',
     type: 'link',
-    url: REQUEST_URL,
+    urlKey: 'requestUrl',   // settings থেকে url নেওয়া হবে
     color: '#a855f7',
   },
   {
@@ -32,7 +32,7 @@ const TABS = [
     icon: 'paper-plane',
     iconOff: 'paper-plane-outline',
     type: 'link',
-    url: TELEGRAM_URL,
+    urlKey: 'telegramUrl',  // settings থেকে url নেওয়া হবে
     color: '#2AABEE',
   },
   {
@@ -50,7 +50,6 @@ const TABS = [
 function TabItem({ tab, active, isOn, onPress }) {
   const scale  = useRef(new Animated.Value(1)).current;
   const dotOp  = useRef(new Animated.Value(active ? 1 : 0)).current;
-  const glowOp = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -62,11 +61,6 @@ function TabItem({ tab, active, isOn, onPress }) {
       Animated.timing(dotOp, {
         toValue: active ? 1 : 0,
         duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(glowOp, {
-        toValue: (active || isOn) ? 1 : 0,
-        duration: 220,
         useNativeDriver: true,
       }),
     ]).start();
@@ -87,7 +81,6 @@ function TabItem({ tab, active, isOn, onPress }) {
   const iconName = (() => {
     if (isToggle) return isOn ? tab.icon : tab.iconOff;
     if (isTab)    return active ? tab.icon : tab.iconOff;
-    // link — always filled when pressed, outline otherwise
     return tab.iconOff;
   })();
 
@@ -102,18 +95,14 @@ function TabItem({ tab, active, isOn, onPress }) {
   return (
     <TouchableOpacity style={styles.tab} onPress={onPress} activeOpacity={0.75}>
       <Animated.View style={[styles.tabInner, { transform: [{ scale }] }]}>
-        {/* Glow bg */}
         <LinearGradient colors={bgColors} style={styles.activeBg} />
 
-        {/* Active top bar */}
         {(active || isOn) && (
           <View style={[styles.topBar, { backgroundColor: activeColor }]} />
         )}
 
-        {/* Icon */}
         <Ionicons name={iconName} size={22} color={iconColor} />
 
-        {/* Label */}
         <Text style={[
           styles.tabLabel,
           (active || isOn) && { color: activeColor },
@@ -121,7 +110,6 @@ function TabItem({ tab, active, isOn, onPress }) {
           {labelText}
         </Text>
 
-        {/* Dot only for real tabs */}
         {isTab && (
           <Animated.View style={[styles.dot, { opacity: dotOp, backgroundColor: activeColor }]} />
         )}
@@ -130,9 +118,15 @@ function TabItem({ tab, active, isOn, onPress }) {
   );
 }
 
-export default function BottomNav({ activeTab, onTabChange, show18, onToggle18 }) {
+// settings prop — AppSettings context থেকে পাস করা হবে
+export default function BottomNav({ activeTab, onTabChange, show18, onToggle18, settings = {} }) {
   const handlePress = (tab) => {
-    if (tab.type === 'link')   { WebBrowser.openBrowserAsync(tab.url); return; }
+    if (tab.type === 'link') {
+      // urlKey দিয়ে settings থেকে URL নেওয়া, fallback hardcoded
+      const url = settings[tab.urlKey] || '';
+      if (url) WebBrowser.openBrowserAsync(url);
+      return;
+    }
     if (tab.type === 'toggle') { onToggle18(); return; }
     onTabChange(tab.key);
   };
@@ -159,7 +153,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#06060a',
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.06)',
-    // subtle inner top glow
     shadowColor: COLORS.cyan,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.06,

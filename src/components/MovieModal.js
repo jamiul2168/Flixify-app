@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as Clipboard from 'expo-clipboard';
-import { COLORS, AD_GATEWAY } from '../utils/constants';
+import { COLORS, DEFAULT_adGateway } from '../utils/constants';
 
 const { width, height } = Dimensions.get('window');
 const MODAL_IMG_WIDTH = width - 40;
@@ -66,7 +66,7 @@ function CountdownModal({ visible, onComplete, onCancel }) {
 
   const handleOpenAd = async () => {
     setAdOpened(true);
-    await WebBrowser.openBrowserAsync(AD_GATEWAY);
+    await WebBrowser.openBrowserAsync(adGateway);
   };
 
   const progressWidth = progressAnim.interpolate({
@@ -149,7 +149,8 @@ function CountdownModal({ visible, onComplete, onCancel }) {
 }
 
 // ─── Main Modal ───────────────────────────────────────────────────────────────
-export default function MovieModal({ movie, visible, onClose }) {
+export default function MovieModal({ movie, visible, onClose, settings = {} }) {
+  const adGateway = settings.adGateway || DEFAULT_adGateway;
   const [copied,      setCopied]      = useState(false);
   const [selEp,       setSelEp]       = useState(null);
   const [ssSize,      setSsSize]      = useState(null);
@@ -168,7 +169,7 @@ export default function MovieModal({ movie, visible, onClose }) {
   // Countdown শেষ → ad খোলো তারপর download
   const handleCountdownComplete = async () => {
     setShowCountdown(false);
-    await WebBrowser.openBrowserAsync(AD_GATEWAY);
+    await WebBrowser.openBrowserAsync(adGateway);
     setTimeout(async () => {
       if (pendingUrl.current) {
         await WebBrowser.openBrowserAsync(pendingUrl.current);
@@ -230,7 +231,7 @@ export default function MovieModal({ movie, visible, onClose }) {
   };
 
   const handleCopy = async () => {
-    await Clipboard.setStringAsync(movie.download || '');
+    await Clipboard.setStringAsync(movie.watchUrl || movie.download || '');
     setCopied(true);
     setTimeout(() => setCopied(false), 1800);
   };

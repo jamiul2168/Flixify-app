@@ -7,10 +7,8 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  COLORS, MOVIES_PER_PAGE,
-} from '../utils/constants';
-import { fetchMovies } from '../utils/api';
+import { COLORS } from '../utils/constants';
+import { fetchMovies, normalizeMovie } from '../utils/api';
 import MovieCard from '../components/MovieCard';
 import MovieModal from '../components/MovieModal';
 import { SkeletonGrid } from '../components/SkeletonCard';
@@ -19,8 +17,12 @@ import LiveUserBadge from '../components/LiveUserBadge';
 const LOGO = require('../../assets/logo.png');
 const { width } = Dimensions.get('window');
 
-export default function HomeScreen({ show18 = false, liveCount = 0, pulseAnim }) {
+export default function HomeScreen({ show18 = false, liveCount = 0, pulseAnim, settings = {} }) {
   const insets = useSafeAreaInsets();
+
+  // settings থেকে dynamic values
+  const moviesPerPage = settings.moviesPerPage || 18;
+  const tickerText    = settings.tickerText    || '🎬 Flixify তে স্বাগতম!';
 
   const [allMovies,    setAllMovies]    = useState([]);
   const [filtered,     setFiltered]     = useState([]);
@@ -58,11 +60,7 @@ export default function HomeScreen({ show18 = false, liveCount = 0, pulseAnim })
       const data = await fetchMovies();
       const movies = (data.movies || [])
         .filter(m => m.source === 'MovieDB')
-        .map(m => ({
-          ...m,
-          id: m.id || m.name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-          categories: Array.isArray(m.categories) ? m.categories : [],
-        }));
+        .map(normalizeMovie);  // ← normalizeMovie দিয়ে সব field সেট
 
       setAllMovies(movies);
 
@@ -71,8 +69,8 @@ export default function HomeScreen({ show18 = false, liveCount = 0, pulseAnim })
       setCategories(['All', ...Array.from(cats).sort()]);
 
       setFiltered(movies);
-      setDisplayed(movies.slice(0, MOVIES_PER_PAGE));
-      setHasMore(movies.length > MOVIES_PER_PAGE);
+      setDisplayed(movies.slice(0, moviesPerPage));
+      setHasMore(movies.length > moviesPerPage);
       setPage(1);
     } catch (e) {
       setError(e.message);
@@ -80,7 +78,7 @@ export default function HomeScreen({ show18 = false, liveCount = 0, pulseAnim })
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [moviesPerPage]);
 
   useEffect(() => { load(); }, []);
 
@@ -98,10 +96,10 @@ export default function HomeScreen({ show18 = false, liveCount = 0, pulseAnim })
       result = [...adult, ...normal];
     }
     setFiltered(result);
-    setDisplayed(result.slice(0, MOVIES_PER_PAGE));
-    setHasMore(result.length > MOVIES_PER_PAGE);
+    setDisplayed(result.slice(0, moviesPerPage));
+    setHasMore(result.length > moviesPerPage);
     setPage(1);
-  }, [search, activeCat, show18, allMovies]);
+  }, [search, activeCat, show18, allMovies, moviesPerPage]);
 
   useEffect(() => {
     if (search.length > 0) {
@@ -135,7 +133,7 @@ export default function HomeScreen({ show18 = false, liveCount = 0, pulseAnim })
   const loadMore = () => {
     if (!hasMore) return;
     const np   = page + 1;
-    const more = filtered.slice(0, np * MOVIES_PER_PAGE);
+    const more = filtered.slice(0, np * moviesPerPage);
     setDisplayed(more);
     setHasMore(filtered.length > more.length);
     setPage(np);
@@ -190,11 +188,9 @@ export default function HomeScreen({ show18 = false, liveCount = 0, pulseAnim })
 
       {/* ── HEADER ── */}
       <View style={styles.header}>
-        {/* Title only */}
         <Text style={styles.logoTxt}>Flixify</Text>
         <LiveUserBadge count={liveCount} pulse={pulseAnim} />
 
-        {/* 18+ badge when active */}
         {show18 && (
           <View style={styles.adultBadge}>
             <Text style={styles.adultBadgeTxt}>18+</Text>
@@ -203,7 +199,6 @@ export default function HomeScreen({ show18 = false, liveCount = 0, pulseAnim })
 
         <View style={{ flex: 1 }} />
 
-        {/* Search box */}
         <View style={styles.searchBox}>
           <Ionicons name="search" size={18} color={COLORS.pink} style={{ marginRight: 10 }} />
           <TextInput
@@ -244,13 +239,13 @@ export default function HomeScreen({ show18 = false, liveCount = 0, pulseAnim })
         </View>
       )}
 
-      {/* ── TICKER ── */}
+      {/* ── TICKER — GAS settings থেকে ── */}
       <View style={styles.ticker}>
         <Animated.Text
           style={[styles.tickerTxt, { transform: [{ translateX: tickX }] }]}
           numberOfLines={1}
         >
-          {'🎬 Welcome to Flixify App!   •   নতুন মুভি পেতে Telegram গ্রুপে join করুন   •   Request করুন আপনার পছন্দের মুভি 🔥'}
+          {tickerText}
         </Animated.Text>
       </View>
 
@@ -333,6 +328,7 @@ export default function HomeScreen({ show18 = false, liveCount = 0, pulseAnim })
         movie={selMovie}
         visible={modalVisible}
         onClose={() => setModalVisible(false)}
+        settings={settings}
       />
     </View>
   );
@@ -344,8 +340,6 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: COLORS.bg,
     alignItems: 'center', justifyContent: 'center', padding: 30,
   },
-
-  // ── Error
   errTitle: { color: COLORS.white, fontSize: 20, fontWeight: '800', marginTop: 16 },
   errSub:   { color: COLORS.gray,  fontSize: 13, marginTop: 8, textAlign: 'center', lineHeight: 20 },
   retryBtn: {
@@ -353,8 +347,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32, paddingVertical: 12, borderRadius: 30,
   },
   retryTxt: { color: '#000', fontWeight: '800', fontSize: 14 },
-
-  // ── Header
   header: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 14, paddingVertical: 10,
@@ -362,7 +354,6 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: '#06060b',
   },
-  logoImg: { width: 26, height: 26, borderRadius: 6 },
   logoTxt: {
     color: COLORS.cyan, fontSize: 19, fontWeight: '900',
     letterSpacing: -0.5,
@@ -382,8 +373,6 @@ const styles = StyleSheet.create({
     width: 200,
   },
   searchInput: { flex: 1, color: '#fff', fontSize: 14, paddingVertical: 0 },
-
-  // ── Suggestions
   suggBox: {
     position: 'absolute', top: 60, left: 14, right: 14,
     backgroundColor: '#13131e',
@@ -405,16 +394,12 @@ const styles = StyleSheet.create({
     borderRadius: 8, alignSelf: 'flex-start', marginTop: 4,
   },
   suggPillTxt: { color: '#000', fontSize: 9, fontWeight: '800' },
-
-  // ── Ticker
   ticker: {
     backgroundColor: '#07070e',
     borderBottomWidth: 1, borderBottomColor: 'rgba(0,229,255,0.07)',
     paddingVertical: 7, overflow: 'hidden', height: 32,
   },
   tickerTxt: { color: COLORS.cyan, fontSize: 11.5, fontWeight: '600' },
-
-  // ── Categories
   catScroll:  { flexShrink: 0 },
   catContent: {
     paddingHorizontal: 14, paddingVertical: 10,
@@ -429,26 +414,18 @@ const styles = StyleSheet.create({
   catChipOn: { backgroundColor: COLORS.cyan, borderColor: COLORS.cyan },
   catTxt:    { color: 'rgba(255,255,255,0.40)', fontSize: 12, fontWeight: '600' },
   catTxtOn:  { color: '#000', fontWeight: '800' },
-
-  // ── Grid
   gridPad: { paddingHorizontal: 14, paddingBottom: 40 },
   row:     { justifyContent: 'space-between' },
-  listHeader: {
-    marginBottom: 10, marginTop: 8,
-  },
+  listHeader: { marginBottom: 10, marginTop: 8 },
   sectionTitle: {
     color: COLORS.white, fontSize: 17, fontWeight: '800',
     letterSpacing: -0.3,
   },
-
-  // ── Empty
   empty: {
     alignItems: 'center', justifyContent: 'center',
     padding: 60, gap: 12,
   },
   emptyTxt: { color: 'rgba(255,255,255,0.18)', fontSize: 15, fontWeight: '600' },
-
-  // ── Load more
   moreBtn: {
     flexDirection: 'row',
     alignSelf: 'center',
