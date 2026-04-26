@@ -381,7 +381,7 @@ export default function MovieModal({ movie, visible, onClose, settings = {} }) {
                   <View style={styles.dlSection}>
                     <TouchableOpacity
                       style={styles.dlBtn}
-                      onPress={() => handleDownload(movie.download)}
+                      onPress={() => handleDownload(movie.watchUrl)}
                       activeOpacity={0.85}
                     >
                       <LinearGradient
