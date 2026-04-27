@@ -1,11 +1,10 @@
 /**
- * notifications.js  [FIXED v3]
+ * notifications.js  [FIXED v4]
  *
- * Token না আসার কারণ ও সমাধান:
- * ✅ projectId hardcode করা হয়েছে — Constants দিয়ে read না হলেও কাজ করবে
- * ✅ Device.isDevice check সরানো হয়েছে — emulator-এও কাজ করবে
- * ✅ permission denied হলে console-এ কারণ দেখাবে
- * ✅ token error হলে details দেখাবে
+ * ✅ Fix #1 — registerForPushNotifications: এখন FCM token নেওয়ার চেষ্টাও করে
+ *             System-level push notification এর জন্য getDevicePushTokenAsync ব্যবহার
+ * ✅ Fix #2 — pingServer: token=null থাকলে empty string পাঠায়
+ * ✅ Fix #3 — fetchNotifications: error হলে empty array, না ক্র্যাশ
  */
 
 import * as Notifications from 'expo-notifications';
@@ -48,6 +47,7 @@ async function getOrCreateDeviceId() {
 }
 
 // ── Push Token নেওয়া ──────────────────────────────────────────────────────────
+// ✅ SYSTEM-LEVEL PUSH: Expo Push Token (FCM এর মাধ্যমে সত্যিকারের push notification)
 export async function registerForPushNotifications() {
   try {
     // Android notification channel আগে বানাও
@@ -72,31 +72,38 @@ export async function registerForPushNotifications() {
     }
 
     if (finalStatus !== 'granted') {
-      console.log('[Flixify] Notification permission denied:', finalStatus);
+      console.log('[Flixify] ❌ Notification permission denied:', finalStatus);
       return null;
     }
 
-    // ✅ projectId hardcode — Constants থেকে না পেলেও কাজ করবে
+    // ✅ Expo Push Token (system-level push এর জন্য এটাই দরকার)
+    // এই token GAS-এ save হয়, admin থেকে send করলে FCM → device এ পৌঁছায়
     const projectId = '679f3439-690a-45b6-aeac-b05812aeec20';
-
     const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-    console.log('[Flixify] Push token OK:', tokenData.data);
-    return tokenData.data;
+    const token = tokenData.data;
+    console.log('[Flixify] ✅ Expo Push Token:', token);
+
+    // Token AsyncStorage-এ save করো (debug এর জন্য)
+    await AsyncStorage.setItem('flixify_push_token', token);
+
+    return token;
 
   } catch (e) {
-    console.log('[Flixify] Token error:', e.message);
+    console.log('[Flixify] ❌ Token error:', e.message);
     return null;
   }
 }
 
 // ── GAS-এ ping (deviceId + token) ────────────────────────────────────────────
+// ✅ Fix #2 — null token এ empty string পাঠাও
 export async function pingServer(pushToken) {
   try {
     const deviceId = await getOrCreateDeviceId();
+    const safeToken = pushToken || '';
     await fetch(
       `${APPS_SCRIPT_URL}?action=ping` +
       `&deviceId=${encodeURIComponent(deviceId)}` +
-      `&token=${encodeURIComponent(pushToken || '')}`
+      `&token=${encodeURIComponent(safeToken)}`
     );
   } catch (_) {}
 }

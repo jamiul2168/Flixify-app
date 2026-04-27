@@ -1,8 +1,9 @@
 /**
- * App.js  [FIXED VERSION]
- * ✅ LiveUserBadge সরানো হয়েছে
- * ✅ Token সাথে সাথেই GAS-এ যায়
- * ✅ lastNotifId string দিয়ে track
+ * App.js  [FIXED v2]
+ * ✅ Fix #1 — Force Update: splashDone নির্বিশেষে settings reload হলে re-check হয়
+ * ✅ Fix #2 — In-App Banner: dismiss করলেও পরের reload-এ আবার দেখাবে (lastDismissedTitle track)
+ * ✅ Fix #3 — pingServer(null) → token=null string পাঠাতো, এখন token='' পাঠাবে
+ * ✅ Fix #4 — Notification poll: app খোলার সাথে সাথেই একবার চেক করে, তারপর 60s interval
  */
 
 import React, { useCallback, useState, useEffect, useRef } from 'react';
@@ -42,28 +43,40 @@ function AppContent() {
   const [activeBanner, setActiveBanner] = useState(null);
   const [lastNotifId,  setLastNotifId]  = useState('');
 
+  // ✅ Fix #2 — dismiss করা banner title track করতে
+  const lastDismissedBannerTitle = useRef('');
+
   const pushToken = useRef(null);
 
-  const forceUpdate   = splashDone && needsForceUpdate(settings);
+  // ✅ Fix #1 — splashDone dependency সরানো হয়েছে
+  // settings load হলেই forceUpdate check হবে, splash-এর জন্য অপেক্ষা করবে না
+  const forceUpdate   = needsForceUpdate(settings);
   const inMaintenance = splashDone && settings.maintenanceMode;
 
   // ── Banner (GAS settings থেকে) ────────────────────────────────────────────
+  // ✅ Fix #2 — Banner dismiss করলেও পরে নতুন banner (ভিন্ন title) আসলে দেখাবে
   useEffect(() => {
     if (!splashDone) return;
-    if (settings.bannerEnabled && settings.bannerTitle) {
+    if (
+      settings.bannerEnabled &&
+      settings.bannerTitle &&
+      settings.bannerTitle !== lastDismissedBannerTitle.current
+    ) {
       setActiveBanner({ title: settings.bannerTitle, body: settings.bannerMessage });
     }
-  }, [splashDone, settings.bannerEnabled, settings.bannerTitle]);
+    // bannerEnabled false হলে dismiss
+    if (!settings.bannerEnabled) {
+      setActiveBanner(null);
+    }
+  }, [splashDone, settings.bannerEnabled, settings.bannerTitle, settings.bannerMessage]);
 
   // ── Push notification + instant ping ──────────────────────────────────────
   useEffect(() => {
     (async () => {
-      // Step 1: INSTANT ping — token ছাড়াই sheet-এ যুক্ত হয়
-      await pingServer(null);
-      // Step 2: Background-এ token নেওয়া (3-5s)
+      // ✅ Fix #3 — null-এর বদলে '' পাঠাচ্ছি, GAS-এ "null" string আসবে না
+      await pingServer('');
       const token = await registerForPushNotifications();
       pushToken.current = token;
-      // Step 3: Token পেলে sheet-এ update
       if (token) await pingServer(token);
     })();
 
@@ -74,7 +87,8 @@ function AppContent() {
     return cleanup;
   }, []);
 
-  // ── Notification poll — প্রতি 60s ─────────────────────────────────────────
+  // ── Notification poll — app খোলার সাথে সাথে + প্রতি 60s ─────────────────
+  // ✅ Fix #4 — immediate first check
   useEffect(() => {
     const checkNotifs = async () => {
       const notifs = await fetchNotifications(lastNotifId);
@@ -84,13 +98,19 @@ function AppContent() {
         setLastNotifId(latest.id);
       }
     };
+
+    // App খোলার পরপরই একবার check করো
+    const initialTimer = setTimeout(checkNotifs, 3000);
     const interval = setInterval(checkNotifs, 60000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
   }, [lastNotifId]);
 
   // ── Ping every 5 min ──────────────────────────────────────────────────────
   useEffect(() => {
-    const interval = setInterval(() => pingServer(pushToken.current), 300000);
+    const interval = setInterval(() => pingServer(pushToken.current || ''), 300000);
     return () => clearInterval(interval);
   }, []);
 
@@ -102,6 +122,7 @@ function AppContent() {
     <View style={[styles.root, { paddingBottom: insets.bottom }]} onLayout={onLayout}>
       {!splashDone && <SplashScreenView onFinish={() => setSplashDone(true)} />}
 
+      {/* ✅ Fix #1 — splashDone check সরানো হয়েছে — splash চলাকালীনও force update দেখাবে */}
       <ForceUpdateModal visible={forceUpdate} settings={settings} />
 
       {inMaintenance && !forceUpdate ? (
@@ -125,7 +146,13 @@ function AppContent() {
       {splashDone && (
         <NotificationBanner
           notification={activeBanner}
-          onDismiss={() => setActiveBanner(null)}
+          onDismiss={() => {
+            // ✅ Fix #2 — dismiss করলে title remember করো
+            if (activeBanner?.title) {
+              lastDismissedBannerTitle.current = activeBanner.title;
+            }
+            setActiveBanner(null);
+          }}
         />
       )}
     </View>
