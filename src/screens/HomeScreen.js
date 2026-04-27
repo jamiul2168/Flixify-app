@@ -40,19 +40,25 @@ export default function HomeScreen({ show18 = false, settings = {} }) {
   const [suggestions,  setSuggestions]  = useState([]);
   const [showSugg,     setShowSugg]     = useState(false);
 
-  const tickX = useRef(new Animated.Value(width)).current;
+  const tickX    = useRef(new Animated.Value(width)).current;
+  const tickAnim = useRef(null);
 
   useEffect(() => {
-    const loop = Animated.loop(
+    // আগের animation বন্ধ করো
+    if (tickAnim.current) tickAnim.current.stop();
+    // শুরু থেকে reset
+    tickX.setValue(width);
+    // ✅ Infinite loop — শেষ হলে আবার শুরু থেকে
+    tickAnim.current = Animated.loop(
       Animated.timing(tickX, {
-        toValue: -width * 4,
-        duration: 22000,
+        toValue:        -width * 5,
+        duration:       25000,
         useNativeDriver: true,
       })
     );
-    loop.start();
-    return () => loop.stop();
-  }, []);
+    tickAnim.current.start();
+    return () => { if (tickAnim.current) tickAnim.current.stop(); };
+  }, [tickerText]); // ✅ tickerText change হলে restart
 
   const load = useCallback(async () => {
     try {

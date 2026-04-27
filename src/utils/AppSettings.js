@@ -105,7 +105,12 @@ export function AppSettingsProvider({ children }) {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // প্রতি 10 সেকেন্ডে settings reload — admin থেকে change করলে ~10s এ app-এ apply হবে
+    const interval = setInterval(load, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <AppSettingsContext.Provider value={{ settings, loading, error, reload: load }}>
