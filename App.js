@@ -1,16 +1,14 @@
 /**
- * App.js  [FIXED v3]
+ * App.js  [FIXED v4]
  *
- * ✅ Fix #1 — Real-time Banner: settings poll (10s) থেকে সরাসরি banner দেখায়
- *             আগে শুধু splashDone + settings change এ কাজ করতো, এখন যেকোনো সময় কাজ করবে
- * ✅ Fix #2 — Real-time Force Update: settings reload হলে তাৎক্ষণিক modal দেখায়
- * ✅ Fix #3 — Push token: type (expo/fcm) সহ GAS-এ পাঠায়
- * ✅ Fix #4 — Notification poll: lastNotifId useRef এ রাখা হয়েছে
- *             (useState এ রাখলে interval re-create হতো বারবার)
+ * ✅ মূল Fix — GAS poll এ নতুন notification এলে:
+ *    → showSystemNotification() call করে (status bar এ আসে)
+ *    → App OPEN থাকলে additionaly in-app banner ও দেখায়
+ *    আগে শুধু setActiveBanner() করতো — শুধু in-app banner আসতো
  */
 
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, AppState } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
@@ -26,7 +24,9 @@ import {
   registerForPushNotifications,
   pingServer,
   fetchNotifications,
+  showSystemNotification,
   setupNotificationListeners,
+  registerBackgroundFetch,
 } from './src/utils/notifications';
 import {
   AppSettingsProvider,
@@ -45,20 +45,24 @@ function AppContent() {
   const [show18,       setShow18]       = useState(false);
   const [activeBanner, setActiveBanner] = useState(null);
 
-  // ✅ Fix #4 — useRef দিয়ে lastNotifId রাখো: interval re-create হবে না
   const lastNotifIdRef           = useRef('');
   const pushTokenRef             = useRef(null);
   const pushTokenTypeRef         = useRef(null);
   const lastDismissedBannerTitle = useRef('');
+  const appStateRef              = useRef(AppState.currentState);
 
-  // ── Force update ──────────────────────────────────────────────────────────
-  // settings যখনই change হয় (10s poll) তখনই needsForceUpdate re-check হয়
   const forceUpdate   = needsForceUpdate(settings);
   const inMaintenance = splashDone && settings.maintenanceMode;
 
-  // ── ✅ Fix #1 — Real-time Banner ──────────────────────────────────────────
-  // settings 10s পর পর reload হয়, settings.bannerEnabled/Title change হলেই
-  // এই effect চলবে এবং তাৎক্ষণিক banner দেখাবে — splashDone লাগবে না
+  // ── AppState track (foreground/background) ────────────────────────────────
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', next => {
+      appStateRef.current = next;
+    });
+    return () => sub.remove();
+  }, []);
+
+  // ── Real-time Banner (settings poll থেকে) ────────────────────────────────
   useEffect(() => {
     if (
       settings.bannerEnabled &&
@@ -67,64 +71,66 @@ function AppContent() {
     ) {
       setActiveBanner({ title: settings.bannerTitle, body: settings.bannerMessage });
     }
-    if (!settings.bannerEnabled) {
-      setActiveBanner(null);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!settings.bannerEnabled) setActiveBanner(null);
   }, [settings.bannerEnabled, settings.bannerTitle, settings.bannerMessage]);
 
-  // ── Push notification setup ───────────────────────────────────────────────
-  // ✅ Fix #3 — token type (expo/fcm) সহ ping করছে
+  // ── Push token registration ───────────────────────────────────────────────
   useEffect(() => {
     (async () => {
-      // App start এ empty ping করো (device online দেখানোর জন্য)
       await pingServer('', '');
-
       const { token, type } = await registerForPushNotifications();
       pushTokenRef.current     = token;
       pushTokenTypeRef.current = type;
-
-      if (token) {
-        await pingServer(token, type);
-        console.log('[Flixify] Token registered:', type, token.slice(0, 30) + '...');
-      }
+      if (token) await pingServer(token, type);
+      // ✅ Background fetch register — App kill হলেও notification আসবে
+      await registerBackgroundFetch();
     })();
 
     const cleanup = setupNotificationListeners({
+      // FCM/Expo থেকে সরাসরি push এলে in-app banner দেখাও
       onReceive: ({ title, body }) => setActiveBanner({ title, body }),
       onTap:     ({ title, body }) => setActiveBanner({ title, body }),
     });
     return cleanup;
   }, []);
 
-  // ── ✅ Fix #4 — Notification poll — useRef দিয়ে interval stable ─────────
+  // ── ✅ GAS Notification Poll ──────────────────────────────────────────────
+  // নতুন notification পেলে:
+  //   - সবসময় → showSystemNotification() → status bar এ আসবে
+  //   - App foreground এ থাকলে → in-app banner ও দেখাবে
   useEffect(() => {
     const checkNotifs = async () => {
       const notifs = await fetchNotifications(lastNotifIdRef.current);
       if (notifs.length > 0) {
         const latest = notifs[0];
-        setActiveBanner({ title: latest.title, body: latest.body });
+
+        // ✅ System notification — app open/closed যাই হোক status bar এ আসবে
+        await showSystemNotification(latest.title, latest.body);
+
+        // App foreground এ থাকলে in-app banner ও দেখাও
+        if (appStateRef.current === 'active') {
+          setActiveBanner({ title: latest.title, body: latest.body });
+        }
+
         lastNotifIdRef.current = latest.id;
       }
     };
 
-    // App খোলার 3s পরে প্রথম check
     const initialTimer = setTimeout(checkNotifs, 3000);
-    // তারপর প্রতি 60s
     const interval     = setInterval(checkNotifs, 60000);
     return () => {
       clearTimeout(initialTimer);
       clearInterval(interval);
     };
-  }, []); // ✅ dependency নেই — একবার mount হলেই চলে, ref update করে
+  }, []);
 
   // ── Ping every 5 min ──────────────────────────────────────────────────────
   useEffect(() => {
-    const interval = setInterval(
+    const iv = setInterval(
       () => pingServer(pushTokenRef.current || '', pushTokenTypeRef.current || ''),
       300000
     );
-    return () => clearInterval(interval);
+    return () => clearInterval(iv);
   }, []);
 
   const onLayout = useCallback(async () => {
@@ -135,7 +141,6 @@ function AppContent() {
     <View style={[styles.root, { paddingBottom: insets.bottom }]} onLayout={onLayout}>
       {!splashDone && <SplashScreenView onFinish={() => setSplashDone(true)} />}
 
-      {/* Force Update: splashDone লাগবে না — settings load হলেই দেখাবে */}
       <ForceUpdateModal visible={forceUpdate} settings={settings} />
 
       {inMaintenance && !forceUpdate ? (
@@ -156,13 +161,10 @@ function AppContent() {
         />
       )}
 
-      {/* Banner: splashDone check নেই — যেকোনো সময় দেখাতে পারবে */}
       <NotificationBanner
         notification={activeBanner}
         onDismiss={() => {
-          if (activeBanner?.title) {
-            lastDismissedBannerTitle.current = activeBanner.title;
-          }
+          if (activeBanner?.title) lastDismissedBannerTitle.current = activeBanner.title;
           setActiveBanner(null);
         }}
       />

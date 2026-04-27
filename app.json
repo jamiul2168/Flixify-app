@@ -27,11 +27,14 @@
         "ACCESS_NETWORK_STATE",
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
-        "POST_NOTIFICATIONS"
+        "POST_NOTIFICATIONS",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_DATA_SYNC"
       ]
     },
     "plugins": [
       "expo-splash-screen",
+      "expo-background-fetch",
       [
         "expo-notifications",
         {
