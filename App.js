@@ -82,8 +82,14 @@ function AppContent() {
   // ── Push notification setup ───────────────────────────────────────────────
   useEffect(() => {
     (async () => {
+      // ✅ App খুলতেই INSTANT ping — token-এর জন্য অপেক্ষা নেই
+      // token ছাড়াই sheet-এ যুক্ত হবে, পরে token পেলে update হবে
+      await pingServer(null);
+
+      // Background-এ token নেওয়া চলতে থাকে
       const token = await registerForPushNotifications();
       pushToken.current = token;
+      // Token পাওয়া গেলে sheet-এ update করো
       if (token) await pingServer(token);
     })();
 

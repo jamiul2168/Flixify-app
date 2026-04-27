@@ -1,8 +1,16 @@
 import { API_URL, DOMAIN } from './constants';
 
+// ✅ FIX — MovieDB GAS ও JSONP দেয়, res.json() কাজ করত না
+async function gasText(url) {
+  const res  = await fetch(url);
+  let   text = (await res.text()).trim();
+  const m = text.match(/^[\w$]+\(([\s\S]*)\)\s*;?\s*$/);
+  if (m) text = m[1];
+  return JSON.parse(text);
+}
+
 export async function fetchMovies() {
-  const res  = await fetch(`${API_URL}?action=getMovieData&domain=${DOMAIN}`);
-  const data = await res.json();
+  const data = await gasText(`${API_URL}?action=getMovieData&domain=${DOMAIN}`);
   return data;
 }
 
