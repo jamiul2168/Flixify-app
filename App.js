@@ -27,6 +27,7 @@ import {
   showSystemNotification,
   setupNotificationListeners,
   registerBackgroundFetch,
+  handleNotificationLink,
 } from './src/utils/notifications';
 import {
   AppSettingsProvider,
@@ -88,8 +89,11 @@ function AppContent() {
 
     const cleanup = setupNotificationListeners({
       // FCM/Expo থেকে সরাসরি push এলে in-app banner দেখাও
-      onReceive: ({ title, body }) => setActiveBanner({ title, body }),
-      onTap:     ({ title, body }) => setActiveBanner({ title, body }),
+      onReceive: ({ title, body, image, link }) => setActiveBanner({ title, body, image: image||'', link: link||'' }),
+      onTap:     ({ title, body, image, link }) => {
+        setActiveBanner({ title, body, image: image||'', link: link||'' });
+        if (link) handleNotificationLink(link);
+      },
     });
     return cleanup;
   }, []);
@@ -104,12 +108,12 @@ function AppContent() {
       if (notifs.length > 0) {
         const latest = notifs[0];
 
-        // ✅ System notification — app open/closed যাই হোক status bar এ আসবে
-        await showSystemNotification(latest.title, latest.body);
+        // ✅ System notification — image + link সহ status bar এ আসবে
+        await showSystemNotification(latest.title, latest.body, latest.image || '', latest.link || '');
 
         // App foreground এ থাকলে in-app banner ও দেখাও
         if (appStateRef.current === 'active') {
-          setActiveBanner({ title: latest.title, body: latest.body });
+          setActiveBanner({ title: latest.title, body: latest.body, image: latest.image || '', link: latest.link || '' });
         }
 
         lastNotifIdRef.current = latest.id;

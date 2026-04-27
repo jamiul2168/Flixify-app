@@ -1,22 +1,21 @@
 /**
- * notifications.js  [FINAL v7 — Background Fetch]
+ * notifications.js  [FINAL v8 — Image + Deep Link]
  *
  * ✅ App OPEN      → in-app banner + system notification
- * ✅ App BACKGROUND → system notification (status bar)
- * ✅ App CLOSED/KILLED → system notification (background task দিয়ে)
- *
- * expo-background-fetch + expo-task-manager ব্যবহার করা হয়েছে।
- * App kill হলেও OS background এ task চালায়, নতুন notif এলে status bar এ আসে।
+ * ✅ App BACKGROUND/CLOSED → system notification (status bar)
+ * ✅ Notification Image → big picture status bar এ দেখাবে
+ * ✅ Deep Link → notification tap করলে app এ নির্দিষ্ট URL এ যাবে
+ * ✅ App না থাকলে → browser এ fallback
  */
 
-import * as Notifications   from 'expo-notifications';
-import * as BackgroundFetch  from 'expo-background-fetch';
-import * as TaskManager      from 'expo-task-manager';
+import * as Notifications  from 'expo-notifications';
+import * as BackgroundFetch from 'expo-background-fetch';
+import * as TaskManager     from 'expo-task-manager';
+import * as Linking         from 'expo-linking';
 import { Platform, AppState } from 'react-native';
-import AsyncStorage           from '@react-native-async-storage/async-storage';
-import { APPS_SCRIPT_URL }    from './constants';
+import AsyncStorage          from '@react-native-async-storage/async-storage';
+import { APPS_SCRIPT_URL }   from './constants';
 
-// ── Background Task নামের constant ──────────────────────────────────────────
 export const BACKGROUND_NOTIF_TASK = 'FLIXIFY_BACKGROUND_NOTIF_TASK';
 
 // ── Foreground এ থাকলেও system notification দেখাবে ─────────────────────────
@@ -132,24 +131,61 @@ export async function pingServer(pushToken, tokenType) {
   } catch (_) {}
 }
 
-// ── ✅ SYSTEM NOTIFICATION trigger ───────────────────────────────────────────
-export async function showSystemNotification(title, body) {
+// ── ✅ SYSTEM NOTIFICATION — image + deep link সহ ────────────────────────────
+export async function showSystemNotification(title, body, image = '', link = '') {
   try {
     await ensureAndroidChannel();
-    await Notifications.scheduleNotificationAsync({
-      content: {
-        title:     title,
-        body:      body,
-        sound:     true,
-        priority:  Notifications.AndroidNotificationPriority.HIGH,
-        vibrate:   [0, 250, 250, 250],
-        channelId: 'flixify-main',
+
+    const content = {
+      title,
+      body,
+      sound:     true,
+      priority:  Notifications.AndroidNotificationPriority.HIGH,
+      vibrate:   [0, 250, 250, 250],
+      channelId: 'flixify-main',
+      // data এ link + image রাখো — onTap এ ব্যবহার হবে
+      data: {
+        link:  link  || '',
+        image: image || '',
       },
+    };
+
+    // Android big picture — attachments দিয়ে image দেখাও
+    if (image) {
+      content.attachments = [{ url: image, identifier: 'notif-image' }];
+    }
+
+    await Notifications.scheduleNotificationAsync({
+      content,
       trigger: null,
     });
-    console.log('[Flixify] ✅ System notification sent:', title);
+    console.log('[Flixify] ✅ System notification sent:', title, link ? `→ ${link}` : '');
   } catch (e) {
     console.log('[Flixify] ❌ showSystemNotification error:', e.message);
+  }
+}
+
+// ── ✅ Deep Link handler ───────────────────────────────────────────────────────
+// Notification tap করলে এই function call করো।
+// App আছে → app এর মধ্যে navigate করবে
+// App নেই বা link https:// → browser এ fallback
+export async function handleNotificationLink(link) {
+  if (!link) return;
+  try {
+    console.log('[Flixify] 🔗 Opening link:', link);
+    // Linking.canOpenURL দিয়ে check করো app handle করতে পারবে কিনা
+    const canOpen = await Linking.canOpenURL(link);
+    if (canOpen) {
+      await Linking.openURL(link);
+    } else {
+      // fallback — https:// দিয়ে browser এ
+      const httpsLink = link.replace(/^flixify:\/\//, 'https://flixify.com/');
+      await Linking.openURL(httpsLink);
+    }
+  } catch (e) {
+    console.log('[Flixify] ❌ handleNotificationLink error:', e.message);
+    // last resort — browser
+    try { await Linking.openURL(link); } catch (_) {}
   }
 }
 
@@ -165,9 +201,7 @@ export async function fetchNotifications(lastSeenId = '') {
   }
 }
 
-// ── ✅ BACKGROUND TASK define ─────────────────────────────────────────────────
-// IMPORTANT: এই block টা App.js এর আগেই execute হয় (module level)।
-// App kill থাকলে OS এই task জাগিয়ে দেয় — poll করে, notif থাকলে দেখায়।
+// ── ✅ BACKGROUND TASK ────────────────────────────────────────────────────────
 TaskManager.defineTask(BACKGROUND_NOTIF_TASK, async () => {
   try {
     const lastId = (await AsyncStorage.getItem('flixify_last_notif_id')) || '';
@@ -175,12 +209,15 @@ TaskManager.defineTask(BACKGROUND_NOTIF_TASK, async () => {
 
     if (notifs.length > 0) {
       const latest = notifs[0];
-      await showSystemNotification(latest.title, latest.body);
+      await showSystemNotification(
+        latest.title,
+        latest.body,
+        latest.image || '',
+        latest.link  || ''
+      );
       await AsyncStorage.setItem('flixify_last_notif_id', String(latest.id));
-      console.log('[BG Task] ✅ Notification দেখানো হয়েছে:', latest.title);
       return BackgroundFetch.BackgroundFetchResult.NewData;
     }
-
     return BackgroundFetch.BackgroundFetchResult.NoData;
   } catch (e) {
     console.log('[BG Task] ❌ Error:', e.message);
@@ -188,29 +225,20 @@ TaskManager.defineTask(BACKGROUND_NOTIF_TASK, async () => {
   }
 });
 
-// ── ✅ Background Fetch register ──────────────────────────────────────────────
-// App.js এ একবার call করো।
+// ── Background Fetch register ─────────────────────────────────────────────────
 export async function registerBackgroundFetch() {
   try {
     const status = await BackgroundFetch.getStatusAsync();
-    const isAvailable =
-      status === BackgroundFetch.BackgroundFetchStatus.Available;
-
-    if (!isAvailable) {
-      console.log('[Flixify] ⚠️ Background fetch not available on this device');
-      return;
-    }
+    if (status !== BackgroundFetch.BackgroundFetchStatus.Available) return;
 
     const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_NOTIF_TASK);
     if (!isRegistered) {
       await BackgroundFetch.registerTaskAsync(BACKGROUND_NOTIF_TASK, {
-        minimumInterval: 15 * 60, // ১৫ মিনিট (Android minimum ~15min)
-        stopOnTerminate:  false,  // App kill হলেও চলবে ✅
-        startOnBoot:      true,   // Phone restart হলেও চালু হবে ✅
+        minimumInterval: 15 * 60,
+        stopOnTerminate:  false,
+        startOnBoot:      true,
       });
       console.log('[Flixify] ✅ Background fetch registered');
-    } else {
-      console.log('[Flixify] ℹ️ Background fetch already registered');
     }
   } catch (e) {
     console.log('[Flixify] ❌ registerBackgroundFetch error:', e.message);
@@ -223,16 +251,22 @@ export function setupNotificationListeners({ onReceive, onTap } = {}) {
     onReceive?.({
       title: notif.request.content.title || 'Flixify',
       body:  notif.request.content.body  || '',
+      image: notif.request.content.data?.image || '',
+      link:  notif.request.content.data?.link  || '',
     });
   });
 
   const responseSub = Notifications.addNotificationResponseReceivedListener(response => {
     const content = response.notification.request.content;
+    const link    = content.data?.link || '';
     onTap?.({
       title: content.title || '',
       body:  content.body  || '',
-      data:  content.data  || {},
+      image: content.data?.image || '',
+      link,
     });
+    // ✅ Tap হলে link এ navigate করো
+    if (link) handleNotificationLink(link);
   });
 
   return () => {
