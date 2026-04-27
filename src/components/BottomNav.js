@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as WebBrowser from 'expo-web-browser';
+import { Linking } from 'react-native';
 import { COLORS } from '../utils/constants';
 
 const TABS = [
@@ -124,7 +124,7 @@ export default function BottomNav({ activeTab, onTabChange, show18, onToggle18, 
     if (tab.type === 'link') {
       // urlKey দিয়ে settings থেকে URL নেওয়া, fallback hardcoded
       const url = settings[tab.urlKey] || '';
-      if (url) WebBrowser.openBrowserAsync(url);
+      if (url) Linking.openURL(url);
       return;
     }
     if (tab.type === 'toggle') { onToggle18(); return; }

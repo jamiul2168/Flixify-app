@@ -2,11 +2,10 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, Image, ScrollView,
   TouchableOpacity, StyleSheet, Modal,
-  Dimensions, Share, Animated,
+  Dimensions, Share, Animated, Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
 import * as Clipboard from 'expo-clipboard';
 import { COLORS, DEFAULT_AD_GATEWAY } from '../utils/constants';
 
@@ -66,7 +65,7 @@ function CountdownModal({ visible, onComplete, onCancel }) {
 
   const handleOpenAd = async () => {
     setAdOpened(true);
-    await WebBrowser.openBrowserAsync(adGateway);
+    await Linking.openURL(adGateway);
   };
 
   const progressWidth = progressAnim.interpolate({
@@ -169,10 +168,10 @@ export default function MovieModal({ movie, visible, onClose, settings = {} }) {
   // Countdown শেষ → ad খোলো তারপর download
   const handleCountdownComplete = async () => {
     setShowCountdown(false);
-    await WebBrowser.openBrowserAsync(adGateway);
+    await Linking.openURL(adGateway);
     setTimeout(async () => {
       if (pendingUrl.current) {
-        await WebBrowser.openBrowserAsync(pendingUrl.current);
+        await Linking.openURL(pendingUrl.current);
       }
     }, 800);
   };
@@ -303,7 +302,7 @@ export default function MovieModal({ movie, visible, onClose, settings = {} }) {
                 {movie.trailer ? (
                   <TouchableOpacity
                     style={styles.trailerBtn}
-                    onPress={() => WebBrowser.openBrowserAsync(
+                    onPress={() => Linking.openURL(
                       movie.trailer.includes('youtube')
                         ? movie.trailer
                         : `https://www.youtube.com/watch?v=${movie.trailer}`

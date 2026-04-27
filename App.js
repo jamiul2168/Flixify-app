@@ -1,18 +1,15 @@
 /**
  * App.js  [FIXED VERSION]
- *
- * Bug Fixes:
- * ✅ Bug #2 — lastNotifId এখন string ID track করে (আগে number 0 ছিল, এখন '' string)
- *             GAS-এর N-prefix ID-র সাথে সঠিকভাবে compare হবে
- * ✅ Bug #2 — notification poll-এ latest.id সঠিকভাবে save হচ্ছে
+ * ✅ LiveUserBadge সরানো হয়েছে
+ * ✅ Token সাথে সাথেই GAS-এ যায়
+ * ✅ lastNotifId string দিয়ে track
  */
 
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, StatusBar } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
-import { Animated } from 'react-native';
 
 import HomeScreen from './src/screens/HomeScreen';
 import SplashScreenView from './src/screens/SplashScreenView';
@@ -24,7 +21,6 @@ import ForceUpdateModal from './src/components/ForceUpdateModal';
 import {
   registerForPushNotifications,
   pingServer,
-  fetchLiveUserCount,
   fetchNotifications,
   setupNotificationListeners,
 } from './src/utils/notifications';
@@ -38,28 +34,20 @@ SplashScreen.preventAutoHideAsync();
 
 function AppContent() {
   const insets = useSafeAreaInsets();
-  const { settings, loading: settingsLoading, reload: reloadSettings } = useAppSettings();
+  const { settings, reload: reloadSettings } = useAppSettings();
 
   const [splashDone,   setSplashDone]   = useState(false);
   const [activeTab,    setActiveTab]    = useState('home');
   const [show18,       setShow18]       = useState(false);
-  const [liveCount,    setLiveCount]    = useState(0);
   const [activeBanner, setActiveBanner] = useState(null);
-
-  // ✅ FIX Bug #2 — '' (empty string) দিয়ে শুরু
-  // GAS-এর ID format হলো "N1234567890" — string compare সঠিক হবে
   const [lastNotifId,  setLastNotifId]  = useState('');
 
   const pushToken = useRef(null);
-  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // ── Force update দরকার কিনা ───────────────────────────────────────────────
-  const forceUpdate = splashDone && needsForceUpdate(settings);
-
-  // ── Maintenance mode ──────────────────────────────────────────────────────
+  const forceUpdate   = splashDone && needsForceUpdate(settings);
   const inMaintenance = splashDone && settings.maintenanceMode;
 
-  // ── Banner popup (from GAS settings) ─────────────────────────────────────
+  // ── Banner (GAS settings থেকে) ────────────────────────────────────────────
   useEffect(() => {
     if (!splashDone) return;
     if (settings.bannerEnabled && settings.bannerTitle) {
@@ -67,29 +55,15 @@ function AppContent() {
     }
   }, [splashDone, settings.bannerEnabled, settings.bannerTitle]);
 
-  // ── Pulse animation for live badge ───────────────────────────────────────
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, { toValue: 0.5, duration: 800, useNativeDriver: true }),
-        Animated.timing(pulseAnim, { toValue: 1,   duration: 800, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, []);
-
-  // ── Push notification setup ───────────────────────────────────────────────
+  // ── Push notification + instant ping ──────────────────────────────────────
   useEffect(() => {
     (async () => {
-      // ✅ App খুলতেই INSTANT ping — token-এর জন্য অপেক্ষা নেই
-      // token ছাড়াই sheet-এ যুক্ত হবে, পরে token পেলে update হবে
+      // Step 1: INSTANT ping — token ছাড়াই sheet-এ যুক্ত হয়
       await pingServer(null);
-
-      // Background-এ token নেওয়া চলতে থাকে
+      // Step 2: Background-এ token নেওয়া (3-5s)
       const token = await registerForPushNotifications();
       pushToken.current = token;
-      // Token পাওয়া গেলে sheet-এ update করো
+      // Step 3: Token পেলে sheet-এ update
       if (token) await pingServer(token);
     })();
 
@@ -100,27 +74,13 @@ function AppContent() {
     return cleanup;
   }, []);
 
-  // ── Live user count — প্রতি 30s ──────────────────────────────────────────
-  useEffect(() => {
-    const tick = async () => {
-      const count = await fetchLiveUserCount();
-      setLiveCount(count);
-    };
-    tick();
-    const interval = setInterval(tick, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // ── Notification poll — প্রতি 60s ────────────────────────────────────────
-  // ✅ FIX Bug #2 — lastNotifId এখন string, GAS-এর N-prefix ID-র সাথে match করে
+  // ── Notification poll — প্রতি 60s ─────────────────────────────────────────
   useEffect(() => {
     const checkNotifs = async () => {
       const notifs = await fetchNotifications(lastNotifId);
       if (notifs.length > 0) {
-        // সবচেয়ে নতুনটা দেখাও (index 0 = newest, GAS reverse করে পাঠায়)
         const latest = notifs[0];
         setActiveBanner({ title: latest.title, body: latest.body });
-        // ✅ latest.id save করো — string format "N1234567890"
         setLastNotifId(latest.id);
       }
     };
@@ -128,11 +88,9 @@ function AppContent() {
     return () => clearInterval(interval);
   }, [lastNotifId]);
 
-  // ── Ping every 5 min ─────────────────────────────────────────────────────
+  // ── Ping every 5 min ──────────────────────────────────────────────────────
   useEffect(() => {
-    const interval = setInterval(() => {
-      pingServer(pushToken.current);
-    }, 300000);
+    const interval = setInterval(() => pingServer(pushToken.current), 300000);
     return () => clearInterval(interval);
   }, []);
 
@@ -141,39 +99,19 @@ function AppContent() {
   }, []);
 
   return (
-    <View
-      style={[styles.root, { paddingBottom: insets.bottom }]}
-      onLayout={onLayout}
-    >
-      {/* Splash */}
-      {!splashDone && (
-        <SplashScreenView onFinish={() => setSplashDone(true)} />
-      )}
+    <View style={[styles.root, { paddingBottom: insets.bottom }]} onLayout={onLayout}>
+      {!splashDone && <SplashScreenView onFinish={() => setSplashDone(true)} />}
 
-      {/* Force update — সব কিছু block করে */}
-      <ForceUpdateModal
-        visible={forceUpdate}
-        settings={settings}
-      />
+      <ForceUpdateModal visible={forceUpdate} settings={settings} />
 
-      {/* Maintenance */}
       {inMaintenance && !forceUpdate ? (
-        <MaintenanceScreen
-          message={settings.maintenanceMessage}
-          onRetry={reloadSettings}
-        />
+        <MaintenanceScreen message={settings.maintenanceMessage} onRetry={reloadSettings} />
       ) : (
         <View style={styles.content}>
-          <HomeScreen
-            show18={show18}
-            liveCount={liveCount}
-            pulseAnim={pulseAnim}
-            settings={settings}
-          />
+          <HomeScreen show18={show18} settings={settings} />
         </View>
       )}
 
-      {/* Bottom Nav */}
       {splashDone && !forceUpdate && (
         <BottomNav
           activeTab={activeTab}
@@ -184,7 +122,6 @@ function AppContent() {
         />
       )}
 
-      {/* In-app notification banner */}
       {splashDone && (
         <NotificationBanner
           notification={activeBanner}

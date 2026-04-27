@@ -1,10 +1,9 @@
 import React from 'react';
 import {
-  Modal, View, Text, TouchableOpacity, StyleSheet, Dimensions,
+  Modal, View, Text, TouchableOpacity, StyleSheet, Dimensions, Linking,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import * as WebBrowser from 'expo-web-browser';
 import { COLORS, APP_VERSION } from '../utils/constants';
 
 const { width } = Dimensions.get('window');
@@ -12,7 +11,7 @@ const { width } = Dimensions.get('window');
 export default function ForceUpdateModal({ visible, settings }) {
   const handleDownload = () => {
     if (settings?.apkDownloadUrl) {
-      WebBrowser.openBrowserAsync(settings.apkDownloadUrl);
+      Linking.openURL(settings.apkDownloadUrl);
     }
   };
 

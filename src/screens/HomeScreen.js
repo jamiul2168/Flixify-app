@@ -12,12 +12,12 @@ import { fetchMovies, normalizeMovie } from '../utils/api';
 import MovieCard from '../components/MovieCard';
 import MovieModal from '../components/MovieModal';
 import { SkeletonGrid } from '../components/SkeletonCard';
-import LiveUserBadge from '../components/LiveUserBadge';
+// LiveUserBadge removed
 
 const LOGO = require('../../assets/logo.png');
 const { width } = Dimensions.get('window');
 
-export default function HomeScreen({ show18 = false, liveCount = 0, pulseAnim, settings = {} }) {
+export default function HomeScreen({ show18 = false, settings = {} }) {
   const insets = useSafeAreaInsets();
 
   // settings থেকে dynamic values
@@ -189,8 +189,6 @@ export default function HomeScreen({ show18 = false, liveCount = 0, pulseAnim, s
       {/* ── HEADER ── */}
       <View style={styles.header}>
         <Text style={styles.logoTxt}>Flixify</Text>
-        <LiveUserBadge count={liveCount} pulse={pulseAnim} />
-
         {show18 && (
           <View style={styles.adultBadge}>
             <Text style={styles.adultBadgeTxt}>18+</Text>
