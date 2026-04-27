@@ -1,11 +1,11 @@
 /**
- * AppSettings — GAS Settings sheet থেকে config টেনে আনে
- * এবং React Context দিয়ে পুরো App-এ সরবরাহ করে।
+ * AppSettings.js  [FIXED VERSION]
  *
- * ব্যবহার:
- *   const { settings, loading } = useAppSettings();
- *   settings.telegramUrl, settings.adGateway, ...
+ * Bug Fixes:
+ * ✅ Bug #1 — res.json() → gasText() helper দিয়ে JSONP strip করে parse
+ *             আগে settings load হতো না, এখন সঠিকভাবে কাজ করবে
  */
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
   APPS_SCRIPT_URL,
@@ -27,6 +27,18 @@ function versionLessThan(a, b) {
     if (na > nb) return false;
   }
   return false;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ✅ FIX Bug #1 — JSONP Helper (notifications.js এর মতো একই)
+// GAS সবসময় callback({...}) পাঠায়, res.json() সরাসরি কাজ করে না
+// ─────────────────────────────────────────────────────────────────────────────
+async function gasText(url) {
+  const res  = await fetch(url);
+  let   text = (await res.text()).trim();
+  const m = text.match(/^[\w$]+\(([\s\S]*)\)\s*;?\s*$/);
+  if (m) text = m[1];
+  return JSON.parse(text);
 }
 
 const defaultSettings = {
@@ -62,8 +74,8 @@ export function AppSettingsProvider({ children }) {
   const load = async () => {
     try {
       setError(null);
-      const res  = await fetch(`${APPS_SCRIPT_URL}?action=getSettings`);
-      const data = await res.json();
+      // ✅ FIX: gasText() ব্যবহার করছে — JSONP সঠিকভাবে parse হবে
+      const data = await gasText(`${APPS_SCRIPT_URL}?action=getSettings`);
 
       if (data?.status === 'ok' && data.settings) {
         const s = data.settings;

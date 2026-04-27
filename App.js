@@ -1,3 +1,12 @@
+/**
+ * App.js  [FIXED VERSION]
+ *
+ * Bug Fixes:
+ * ✅ Bug #2 — lastNotifId এখন string ID track করে (আগে number 0 ছিল, এখন '' string)
+ *             GAS-এর N-prefix ID-র সাথে সঠিকভাবে compare হবে
+ * ✅ Bug #2 — notification poll-এ latest.id সঠিকভাবে save হচ্ছে
+ */
+
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, StatusBar } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -36,9 +45,13 @@ function AppContent() {
   const [show18,       setShow18]       = useState(false);
   const [liveCount,    setLiveCount]    = useState(0);
   const [activeBanner, setActiveBanner] = useState(null);
-  const [lastNotifId,  setLastNotifId]  = useState(0);
-  const pushToken                       = useRef(null);
-  const pulseAnim                       = useRef(new Animated.Value(1)).current;
+
+  // ✅ FIX Bug #2 — '' (empty string) দিয়ে শুরু
+  // GAS-এর ID format হলো "N1234567890" — string compare সঠিক হবে
+  const [lastNotifId,  setLastNotifId]  = useState('');
+
+  const pushToken = useRef(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   // ── Force update দরকার কিনা ───────────────────────────────────────────────
   const forceUpdate = splashDone && needsForceUpdate(settings);
@@ -68,14 +81,12 @@ function AppContent() {
 
   // ── Push notification setup ───────────────────────────────────────────────
   useEffect(() => {
-    // Token নেওয়া ও GAS-এ পাঠানো
     (async () => {
       const token = await registerForPushNotifications();
       pushToken.current = token;
       if (token) await pingServer(token);
     })();
 
-    // Foreground receive + tray tap listener
     const cleanup = setupNotificationListeners({
       onReceive: ({ title, body }) => setActiveBanner({ title, body }),
       onTap:     ({ title, body }) => setActiveBanner({ title, body }),
@@ -95,12 +106,15 @@ function AppContent() {
   }, []);
 
   // ── Notification poll — প্রতি 60s ────────────────────────────────────────
+  // ✅ FIX Bug #2 — lastNotifId এখন string, GAS-এর N-prefix ID-র সাথে match করে
   useEffect(() => {
     const checkNotifs = async () => {
       const notifs = await fetchNotifications(lastNotifId);
       if (notifs.length > 0) {
-        const latest = notifs[notifs.length - 1];
+        // সবচেয়ে নতুনটা দেখাও (index 0 = newest, GAS reverse করে পাঠায়)
+        const latest = notifs[0];
         setActiveBanner({ title: latest.title, body: latest.body });
+        // ✅ latest.id save করো — string format "N1234567890"
         setLastNotifId(latest.id);
       }
     };

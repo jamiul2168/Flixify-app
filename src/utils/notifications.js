@@ -1,7 +1,18 @@
+/**
+ * notifications.js  [FIXED VERSION]
+ *
+ * Bug Fixes:
+ * ✅ Bug #1 — res.json() → gasText() helper দিয়ে JSONP strip করে parse করা হচ্ছে
+ * ✅ Bug #3 — projectId missing হলেও graceful fallback
+ * ✅ Bug #4 — AsyncStorage দিয়ে persistent deviceId (duplicate users বন্ধ)
+ * ✅ Bug #6 — liveCount এখন সঠিকভাবে parse হবে
+ */
+
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { APPS_SCRIPT_URL } from './constants';
 
 // ── Foreground-এ থাকলেও native notification দেখাবে ──────────────────────────
@@ -12,6 +23,41 @@ Notifications.setNotificationHandler({
     shouldSetBadge:  true,
   }),
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ✅ FIX Bug #1 — JSONP Helper
+// GAS সবসময় "callback({...})" format-এ response দেয়
+// এই helper সেই wrapper সরিয়ে JSON parse করে
+// ─────────────────────────────────────────────────────────────────────────────
+async function gasText(url) {
+  const res  = await fetch(url);
+  let   text = (await res.text()).trim();
+  // JSONP wrapper সরাও: callback({...}) বা callback([...])
+  const m = text.match(/^[\w$]+\(([\s\S]*)\)\s*;?\s*$/);
+  if (m) text = m[1];
+  return JSON.parse(text);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ✅ FIX Bug #4 — Persistent DeviceId
+// AsyncStorage-এ একবার save হলে পরের বার একই ID ব্যবহার হবে
+// আগের মতো Date.now() দিয়ে নতুন ID হবে না → duplicate rows বন্ধ
+// ─────────────────────────────────────────────────────────────────────────────
+async function getOrCreateDeviceId() {
+  try {
+    let id = await AsyncStorage.getItem('flixify_device_id');
+    if (!id) {
+      // UUID-style unique ID তৈরি করো
+      const rand = () => Math.random().toString(36).substring(2, 10);
+      id = `${Platform.OS}-${rand()}-${rand()}`;
+      await AsyncStorage.setItem('flixify_device_id', id);
+    }
+    return id;
+  } catch (_) {
+    // AsyncStorage fail হলে session-এর জন্য temporary ID
+    return `${Platform.OS}-${Math.random().toString(36).substring(2, 15)}`;
+  }
+}
 
 // ── Expo Push Token নেওয়া ────────────────────────────────────────────────────
 export async function registerForPushNotifications() {
@@ -45,13 +91,17 @@ export async function registerForPushNotifications() {
     });
   }
 
-  // Expo Push Token — এটাই GAS-এ save হবে
+  // ✅ FIX Bug #3 — projectId graceful handling
+  // projectId না থাকলেও crash করবে না
   const projectId =
     Constants.expoConfig?.extra?.eas?.projectId ||
-    Constants.manifest?.extra?.eas?.projectId;
+    Constants.manifest?.extra?.eas?.projectId ||
+    null;
 
   try {
-    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
+    const tokenData = await Notifications.getExpoPushTokenAsync(
+      projectId ? { projectId } : {}
+    );
     console.log('Push token:', tokenData.data);
     return tokenData.data; // "ExponentPushToken[xxxxxx]" format
   } catch (e) {
@@ -61,12 +111,10 @@ export async function registerForPushNotifications() {
 }
 
 // ── GAS-এ token + deviceId পাঠানো (heartbeat) ────────────────────────────────
+// ✅ FIX Bug #4 — getOrCreateDeviceId() ব্যবহার করছে (persistent)
 export async function pingServer(pushToken) {
   try {
-    const deviceId =
-      Constants.expoConfig?.extra?.deviceId ||
-      Constants.sessionId ||
-      `device_${Platform.OS}_${Date.now()}`;
+    const deviceId = await getOrCreateDeviceId();
 
     await fetch(
       `${APPS_SCRIPT_URL}?action=ping` +
@@ -77,10 +125,10 @@ export async function pingServer(pushToken) {
 }
 
 // ── Live user count ────────────────────────────────────────────────────────────
+// ✅ FIX Bug #6 — res.json() → gasText() দিয়ে JSONP সঠিকভাবে parse হচ্ছে
 export async function fetchLiveUserCount() {
   try {
-    const res  = await fetch(`${APPS_SCRIPT_URL}?action=liveCount`);
-    const data = await res.json();
+    const data = await gasText(`${APPS_SCRIPT_URL}?action=liveCount`);
     return data.count || 0;
   } catch (_) {
     return 0;
@@ -88,10 +136,13 @@ export async function fetchLiveUserCount() {
 }
 
 // ── GAS থেকে নতুন notification poll করা ──────────────────────────────────────
-export async function fetchNotifications(lastSeenId = 0) {
+// ✅ FIX Bug #1 — gasText() দিয়ে JSONP parse
+// ✅ FIX Bug #2 — lastId পাঠানো হচ্ছে, GAS সেটা filter করে নতুনগুলো দেবে
+export async function fetchNotifications(lastSeenId = '') {
   try {
-    const res  = await fetch(`${APPS_SCRIPT_URL}?action=getNotifs&lastId=${lastSeenId}`);
-    const data = await res.json();
+    const data = await gasText(
+      `${APPS_SCRIPT_URL}?action=getNotifs&lastId=${encodeURIComponent(lastSeenId)}`
+    );
     return data.notifications || [];
   } catch (_) {
     return [];
@@ -99,7 +150,6 @@ export async function fetchNotifications(lastSeenId = 0) {
 }
 
 // ── Notification tap listener setup ──────────────────────────────────────────
-// App.js-এ একবার call করলেই হবে
 export function setupNotificationListeners({ onReceive, onTap } = {}) {
   // App foreground-এ notification আসলে
   const receiveSub = Notifications.addNotificationReceivedListener(notif => {
@@ -119,7 +169,6 @@ export function setupNotificationListeners({ onReceive, onTap } = {}) {
     });
   });
 
-  // Cleanup function return করা
   return () => {
     receiveSub.remove();
     responseSub.remove();

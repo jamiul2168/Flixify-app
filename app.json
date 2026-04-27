@@ -42,6 +42,11 @@
         }
       ]
     ],
-    "scheme": "flixify"
+    "scheme": "flixify",
+    "extra": {
+      "eas": {
+        "projectId": "679f3439-690a-45b6-aeac-b05812aeec20"
+      }
+    }
   }
 }
