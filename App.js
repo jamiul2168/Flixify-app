@@ -1,9 +1,12 @@
 /**
- * App.js  [FIXED v2]
- * ✅ Fix #1 — Force Update: splashDone নির্বিশেষে settings reload হলে re-check হয়
- * ✅ Fix #2 — In-App Banner: dismiss করলেও পরের reload-এ আবার দেখাবে (lastDismissedTitle track)
- * ✅ Fix #3 — pingServer(null) → token=null string পাঠাতো, এখন token='' পাঠাবে
- * ✅ Fix #4 — Notification poll: app খোলার সাথে সাথেই একবার চেক করে, তারপর 60s interval
+ * App.js  [FIXED v3]
+ *
+ * ✅ Fix #1 — Real-time Banner: settings poll (10s) থেকে সরাসরি banner দেখায়
+ *             আগে শুধু splashDone + settings change এ কাজ করতো, এখন যেকোনো সময় কাজ করবে
+ * ✅ Fix #2 — Real-time Force Update: settings reload হলে তাৎক্ষণিক modal দেখায়
+ * ✅ Fix #3 — Push token: type (expo/fcm) সহ GAS-এ পাঠায়
+ * ✅ Fix #4 — Notification poll: lastNotifId useRef এ রাখা হয়েছে
+ *             (useState এ রাখলে interval re-create হতো বারবার)
  */
 
 import React, { useCallback, useState, useEffect, useRef } from 'react';
@@ -12,12 +15,12 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
 
-import HomeScreen from './src/screens/HomeScreen';
-import SplashScreenView from './src/screens/SplashScreenView';
-import MaintenanceScreen from './src/screens/MaintenanceScreen';
-import BottomNav from './src/components/BottomNav';
+import HomeScreen         from './src/screens/HomeScreen';
+import SplashScreenView   from './src/screens/SplashScreenView';
+import MaintenanceScreen  from './src/screens/MaintenanceScreen';
+import BottomNav          from './src/components/BottomNav';
 import NotificationBanner from './src/components/NotificationBanner';
-import ForceUpdateModal from './src/components/ForceUpdateModal';
+import ForceUpdateModal   from './src/components/ForceUpdateModal';
 
 import {
   registerForPushNotifications,
@@ -41,22 +44,22 @@ function AppContent() {
   const [activeTab,    setActiveTab]    = useState('home');
   const [show18,       setShow18]       = useState(false);
   const [activeBanner, setActiveBanner] = useState(null);
-  const [lastNotifId,  setLastNotifId]  = useState('');
 
-  // ✅ Fix #2 — dismiss করা banner title track করতে
+  // ✅ Fix #4 — useRef দিয়ে lastNotifId রাখো: interval re-create হবে না
+  const lastNotifIdRef           = useRef('');
+  const pushTokenRef             = useRef(null);
+  const pushTokenTypeRef         = useRef(null);
   const lastDismissedBannerTitle = useRef('');
 
-  const pushToken = useRef(null);
-
-  // ✅ Fix #1 — splashDone dependency সরানো হয়েছে
-  // settings load হলেই forceUpdate check হবে, splash-এর জন্য অপেক্ষা করবে না
+  // ── Force update ──────────────────────────────────────────────────────────
+  // settings যখনই change হয় (10s poll) তখনই needsForceUpdate re-check হয়
   const forceUpdate   = needsForceUpdate(settings);
   const inMaintenance = splashDone && settings.maintenanceMode;
 
-  // ── Banner (GAS settings থেকে) ────────────────────────────────────────────
-  // ✅ Fix #2 — Banner dismiss করলেও পরে নতুন banner (ভিন্ন title) আসলে দেখাবে
+  // ── ✅ Fix #1 — Real-time Banner ──────────────────────────────────────────
+  // settings 10s পর পর reload হয়, settings.bannerEnabled/Title change হলেই
+  // এই effect চলবে এবং তাৎক্ষণিক banner দেখাবে — splashDone লাগবে না
   useEffect(() => {
-    if (!splashDone) return;
     if (
       settings.bannerEnabled &&
       settings.bannerTitle &&
@@ -64,20 +67,27 @@ function AppContent() {
     ) {
       setActiveBanner({ title: settings.bannerTitle, body: settings.bannerMessage });
     }
-    // bannerEnabled false হলে dismiss
     if (!settings.bannerEnabled) {
       setActiveBanner(null);
     }
-  }, [splashDone, settings.bannerEnabled, settings.bannerTitle, settings.bannerMessage]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.bannerEnabled, settings.bannerTitle, settings.bannerMessage]);
 
-  // ── Push notification + instant ping ──────────────────────────────────────
+  // ── Push notification setup ───────────────────────────────────────────────
+  // ✅ Fix #3 — token type (expo/fcm) সহ ping করছে
   useEffect(() => {
     (async () => {
-      // ✅ Fix #3 — null-এর বদলে '' পাঠাচ্ছি, GAS-এ "null" string আসবে না
-      await pingServer('');
-      const token = await registerForPushNotifications();
-      pushToken.current = token;
-      if (token) await pingServer(token);
+      // App start এ empty ping করো (device online দেখানোর জন্য)
+      await pingServer('', '');
+
+      const { token, type } = await registerForPushNotifications();
+      pushTokenRef.current     = token;
+      pushTokenTypeRef.current = type;
+
+      if (token) {
+        await pingServer(token, type);
+        console.log('[Flixify] Token registered:', type, token.slice(0, 30) + '...');
+      }
     })();
 
     const cleanup = setupNotificationListeners({
@@ -87,30 +97,33 @@ function AppContent() {
     return cleanup;
   }, []);
 
-  // ── Notification poll — app খোলার সাথে সাথে + প্রতি 60s ─────────────────
-  // ✅ Fix #4 — immediate first check
+  // ── ✅ Fix #4 — Notification poll — useRef দিয়ে interval stable ─────────
   useEffect(() => {
     const checkNotifs = async () => {
-      const notifs = await fetchNotifications(lastNotifId);
+      const notifs = await fetchNotifications(lastNotifIdRef.current);
       if (notifs.length > 0) {
         const latest = notifs[0];
         setActiveBanner({ title: latest.title, body: latest.body });
-        setLastNotifId(latest.id);
+        lastNotifIdRef.current = latest.id;
       }
     };
 
-    // App খোলার পরপরই একবার check করো
+    // App খোলার 3s পরে প্রথম check
     const initialTimer = setTimeout(checkNotifs, 3000);
-    const interval = setInterval(checkNotifs, 60000);
+    // তারপর প্রতি 60s
+    const interval     = setInterval(checkNotifs, 60000);
     return () => {
       clearTimeout(initialTimer);
       clearInterval(interval);
     };
-  }, [lastNotifId]);
+  }, []); // ✅ dependency নেই — একবার mount হলেই চলে, ref update করে
 
   // ── Ping every 5 min ──────────────────────────────────────────────────────
   useEffect(() => {
-    const interval = setInterval(() => pingServer(pushToken.current || ''), 300000);
+    const interval = setInterval(
+      () => pingServer(pushTokenRef.current || '', pushTokenTypeRef.current || ''),
+      300000
+    );
     return () => clearInterval(interval);
   }, []);
 
@@ -122,7 +135,7 @@ function AppContent() {
     <View style={[styles.root, { paddingBottom: insets.bottom }]} onLayout={onLayout}>
       {!splashDone && <SplashScreenView onFinish={() => setSplashDone(true)} />}
 
-      {/* ✅ Fix #1 — splashDone check সরানো হয়েছে — splash চলাকালীনও force update দেখাবে */}
+      {/* Force Update: splashDone লাগবে না — settings load হলেই দেখাবে */}
       <ForceUpdateModal visible={forceUpdate} settings={settings} />
 
       {inMaintenance && !forceUpdate ? (
@@ -143,18 +156,16 @@ function AppContent() {
         />
       )}
 
-      {splashDone && (
-        <NotificationBanner
-          notification={activeBanner}
-          onDismiss={() => {
-            // ✅ Fix #2 — dismiss করলে title remember করো
-            if (activeBanner?.title) {
-              lastDismissedBannerTitle.current = activeBanner.title;
-            }
-            setActiveBanner(null);
-          }}
-        />
-      )}
+      {/* Banner: splashDone check নেই — যেকোনো সময় দেখাতে পারবে */}
+      <NotificationBanner
+        notification={activeBanner}
+        onDismiss={() => {
+          if (activeBanner?.title) {
+            lastDismissedBannerTitle.current = activeBanner.title;
+          }
+          setActiveBanner(null);
+        }}
+      />
     </View>
   );
 }
