@@ -26,25 +26,11 @@
         "INTERNET",
         "ACCESS_NETWORK_STATE",
         "RECEIVE_BOOT_COMPLETED",
-        "VIBRATE",
-        "POST_NOTIFICATIONS",
-        "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_DATA_SYNC"
+        "VIBRATE"
       ]
     },
     "plugins": [
-      "expo-splash-screen",
-      "expo-background-fetch",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/icon.png",
-          "color": "#eb0050",
-          "sounds": [],
-          "androidMode": "default",
-          "androidCollapsedTitle": "Flixify"
-        }
-      ]
+      "expo-splash-screen"
     ],
     "scheme": "flixify",
     "extra": {

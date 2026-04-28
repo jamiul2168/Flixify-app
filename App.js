@@ -1,10 +1,12 @@
 /**
- * App.js  [FIXED v4]
+ * App.js  [CLEAN v1]
  *
- * ✅ মূল Fix — GAS poll এ নতুন notification এলে:
- *    → showSystemNotification() call করে (status bar এ আসে)
- *    → App OPEN থাকলে additionaly in-app banner ও দেখায়
- *    আগে শুধু setActiveBanner() করতো — শুধু in-app banner আসতো
+ * ✅ Notification সিস্টেম সম্পূর্ণ বাদ
+ * ✅ Active user ping (5 মিনিট পর পর)
+ * ✅ Force Update Modal
+ * ✅ In-App Banner (settings থেকে)
+ * ✅ Maintenance Mode
+ * ✅ Splash Screen
  */
 
 import React, { useCallback, useState, useEffect, useRef } from 'react';
@@ -13,27 +15,15 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
 
-import HomeScreen         from './src/screens/HomeScreen';
-import SplashScreenView   from './src/screens/SplashScreenView';
-import MaintenanceScreen  from './src/screens/MaintenanceScreen';
-import BottomNav          from './src/components/BottomNav';
-import NotificationBanner from './src/components/NotificationBanner';
-import ForceUpdateModal   from './src/components/ForceUpdateModal';
+import HomeScreen        from './src/screens/HomeScreen';
+import SplashScreenView  from './src/screens/SplashScreenView';
+import MaintenanceScreen from './src/screens/MaintenanceScreen';
+import BottomNav         from './src/components/BottomNav';
+import InAppBanner       from './src/components/InAppBanner';
+import ForceUpdateModal  from './src/components/ForceUpdateModal';
 
-import {
-  registerForPushNotifications,
-  pingServer,
-  fetchNotifications,
-  showSystemNotification,
-  setupNotificationListeners,
-  registerBackgroundFetch,
-  handleNotificationLink,
-} from './src/utils/notifications';
-import {
-  AppSettingsProvider,
-  useAppSettings,
-  needsForceUpdate,
-} from './src/utils/AppSettings';
+import { pingServer }                         from './src/utils/userTracker';
+import { AppSettingsProvider, useAppSettings, needsForceUpdate } from './src/utils/AppSettings';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -44,98 +34,33 @@ function AppContent() {
   const [splashDone,   setSplashDone]   = useState(false);
   const [activeTab,    setActiveTab]    = useState('home');
   const [show18,       setShow18]       = useState(false);
-  const [activeBanner, setActiveBanner] = useState(null);
+  const [showBanner,   setShowBanner]   = useState(false);
 
-  const lastNotifIdRef           = useRef('');
-  const pushTokenRef             = useRef(null);
-  const pushTokenTypeRef         = useRef(null);
   const lastDismissedBannerTitle = useRef('');
-  const appStateRef              = useRef(AppState.currentState);
 
   const forceUpdate   = needsForceUpdate(settings);
   const inMaintenance = splashDone && settings.maintenanceMode;
 
-  // ── AppState track (foreground/background) ────────────────────────────────
+  // ── User ping on start + প্রতি 5 মিনিটে ─────────────────────────────────
   useEffect(() => {
-    const sub = AppState.addEventListener('change', next => {
-      appStateRef.current = next;
-    });
-    return () => sub.remove();
+    pingServer();
+    const iv = setInterval(pingServer, 5 * 60 * 1000);
+    return () => clearInterval(iv);
   }, []);
 
-  // ── Real-time Banner (settings poll থেকে) ────────────────────────────────
+  // ── In-App Banner — settings থেকে ────────────────────────────────────────
+  // bannerEnabled ON হলে এবং আগে dismiss না করলে দেখাবে
   useEffect(() => {
     if (
       settings.bannerEnabled &&
       settings.bannerTitle &&
       settings.bannerTitle !== lastDismissedBannerTitle.current
     ) {
-      setActiveBanner({ title: settings.bannerTitle, body: settings.bannerMessage });
+      setShowBanner(true);
+    } else if (!settings.bannerEnabled) {
+      setShowBanner(false);
     }
-    if (!settings.bannerEnabled) setActiveBanner(null);
   }, [settings.bannerEnabled, settings.bannerTitle, settings.bannerMessage]);
-
-  // ── Push token registration ───────────────────────────────────────────────
-  useEffect(() => {
-    (async () => {
-      await pingServer('', '');
-      const { token, type } = await registerForPushNotifications();
-      pushTokenRef.current     = token;
-      pushTokenTypeRef.current = type;
-      if (token) await pingServer(token, type);
-      // ✅ Background fetch register — App kill হলেও notification আসবে
-      await registerBackgroundFetch();
-    })();
-
-    const cleanup = setupNotificationListeners({
-      // FCM/Expo থেকে সরাসরি push এলে in-app banner দেখাও
-      onReceive: ({ title, body, image, link }) => setActiveBanner({ title, body, image: image||'', link: link||'' }),
-      onTap:     ({ title, body, image, link }) => {
-        setActiveBanner({ title, body, image: image||'', link: link||'' });
-        if (link) handleNotificationLink(link);
-      },
-    });
-    return cleanup;
-  }, []);
-
-  // ── ✅ GAS Notification Poll ──────────────────────────────────────────────
-  // নতুন notification পেলে:
-  //   - সবসময় → showSystemNotification() → status bar এ আসবে
-  //   - App foreground এ থাকলে → in-app banner ও দেখাবে
-  useEffect(() => {
-    const checkNotifs = async () => {
-      const notifs = await fetchNotifications(lastNotifIdRef.current);
-      if (notifs.length > 0) {
-        const latest = notifs[0];
-
-        // ✅ System notification — image + link সহ status bar এ আসবে
-        await showSystemNotification(latest.title, latest.body, latest.image || '', latest.link || '');
-
-        // App foreground এ থাকলে in-app banner ও দেখাও
-        if (appStateRef.current === 'active') {
-          setActiveBanner({ title: latest.title, body: latest.body, image: latest.image || '', link: latest.link || '' });
-        }
-
-        lastNotifIdRef.current = latest.id;
-      }
-    };
-
-    const initialTimer = setTimeout(checkNotifs, 3000);
-    const interval     = setInterval(checkNotifs, 60000);
-    return () => {
-      clearTimeout(initialTimer);
-      clearInterval(interval);
-    };
-  }, []);
-
-  // ── Ping every 5 min ──────────────────────────────────────────────────────
-  useEffect(() => {
-    const iv = setInterval(
-      () => pingServer(pushTokenRef.current || '', pushTokenTypeRef.current || ''),
-      300000
-    );
-    return () => clearInterval(iv);
-  }, []);
 
   const onLayout = useCallback(async () => {
     await SplashScreen.hideAsync();
@@ -143,18 +68,31 @@ function AppContent() {
 
   return (
     <View style={[styles.root, { paddingBottom: insets.bottom }]} onLayout={onLayout}>
-      {!splashDone && <SplashScreenView onFinish={() => setSplashDone(true)} />}
 
+      {/* Splash */}
+      {!splashDone && (
+        <SplashScreenView
+          duration={settings.splashDuration || 2000}
+          onFinish={() => setSplashDone(true)}
+        />
+      )}
+
+      {/* Force Update — সব কিছুর উপরে */}
       <ForceUpdateModal visible={forceUpdate} settings={settings} />
 
+      {/* Main Content */}
       {inMaintenance && !forceUpdate ? (
-        <MaintenanceScreen message={settings.maintenanceMessage} onRetry={reloadSettings} />
+        <MaintenanceScreen
+          message={settings.maintenanceMessage}
+          onRetry={reloadSettings}
+        />
       ) : (
         <View style={styles.content}>
           <HomeScreen show18={show18} settings={settings} />
         </View>
       )}
 
+      {/* Bottom Nav */}
       {splashDone && !forceUpdate && (
         <BottomNav
           activeTab={activeTab}
@@ -165,13 +103,18 @@ function AppContent() {
         />
       )}
 
-      <NotificationBanner
-        notification={activeBanner}
-        onDismiss={() => {
-          if (activeBanner?.title) lastDismissedBannerTitle.current = activeBanner.title;
-          setActiveBanner(null);
-        }}
-      />
+      {/* In-App Banner */}
+      {splashDone && showBanner && (
+        <InAppBanner
+          title={settings.bannerTitle}
+          message={settings.bannerMessage}
+          onDismiss={() => {
+            lastDismissedBannerTitle.current = settings.bannerTitle;
+            setShowBanner(false);
+          }}
+        />
+      )}
+
     </View>
   );
 }

@@ -8,7 +8,7 @@ import { COLORS } from '../utils/constants';
 const { width, height } = Dimensions.get('window');
 const LOGO = require('../assets/logo.png');
 
-export default function SplashScreenView({ onFinish }) {
+export default function SplashScreenView({ onFinish, duration = 2000 }) {
   const logoScale     = useRef(new Animated.Value(0.4)).current;
   const logoOpacity   = useRef(new Animated.Value(0)).current;
   const tagOpacity    = useRef(new Animated.Value(0)).current;
