@@ -37,6 +37,8 @@ function setupSheets() {
       ['latest_version',       '1.0.0'],
       ['apk_download_url',     ''],
       ['update_changelog',     ''],
+      ['content_api_url',    'https://script.google.com/macros/s/AKfycbx-rB3PNtoZVc6pm3GXq4kAeQkzvOTDkhJkL-XIQSIauG02Pp8gVMTA73bwb4MGvuMytg/exec'],
+      ['content_domain',     'new1.flixify.jhtone.site'],
     ];
     sSheet.getRange(1, 1, defaults.length, 2).setValues(defaults);
     sSheet.getRange(1, 1, 1, 2)

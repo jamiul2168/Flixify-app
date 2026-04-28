@@ -21,8 +21,10 @@ export default function HomeScreen({ show18 = false, settings = {} }) {
   const insets = useSafeAreaInsets();
 
   // settings থেকে dynamic values
-  const moviesPerPage = settings.moviesPerPage || 18;
-  const tickerText    = settings.tickerText    || '🎬 Flixify তে স্বাগতম!';
+  const moviesPerPage  = settings.moviesPerPage  || 18;
+  const tickerText     = settings.tickerText     || '🎬 Flixify তে স্বাগতম!';
+  const contentApiUrl  = settings.contentApiUrl  || undefined;
+  const contentDomain  = settings.contentDomain  || undefined;
 
   const [allMovies,    setAllMovies]    = useState([]);
   const [filtered,     setFiltered]     = useState([]);
@@ -63,7 +65,7 @@ export default function HomeScreen({ show18 = false, settings = {} }) {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const data = await fetchMovies();
+      const data = await fetchMovies(contentApiUrl, contentDomain);
       const movies = (data.movies || [])
         .filter(m => m.source === 'MovieDB')
         .map(normalizeMovie);  // ← normalizeMovie দিয়ে সব field সেট
