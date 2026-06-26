@@ -1,20 +1,37 @@
+/**
+ * SplashScreenView.js  [Branding-aware]
+ *
+ * ✅ Admin panel থেকে app_name, logo_url, logo_emoji, splash_title,
+ *    splash_subtitle, primary_color সব dynamic
+ */
+
 import React, { useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, Animated, Dimensions, StatusBar, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS } from '../utils/constants';
+import { useAppSettings } from '../utils/AppSettings';
 
 const { width, height } = Dimensions.get('window');
-const LOGO = require('../assets/logo.png');
 
 export default function SplashScreenView({ onFinish, duration = 2000 }) {
+  const { settings } = useAppSettings();
+
   const logoScale     = useRef(new Animated.Value(0.4)).current;
   const logoOpacity   = useRef(new Animated.Value(0)).current;
   const tagOpacity    = useRef(new Animated.Value(0)).current;
   const barWidth      = useRef(new Animated.Value(0)).current;
   const screenOpacity = useRef(new Animated.Value(1)).current;
   const glowAnim      = useRef(new Animated.Value(0.3)).current;
+
+  // Branding values
+  const appName      = settings.splashTitle    || settings.appName || 'Flixify';
+  const subtitle     = settings.splashSubtitle || settings.appTagline || '';
+  const logoUrl      = settings.logoUrl        || '';
+  const logoEmoji    = settings.logoEmoji      || '🎬';
+  const accentColor  = settings.primaryColor   || COLORS.cyan;
+  const splashMs     = settings.splashDuration || duration;
 
   useEffect(() => {
     const glow = Animated.loop(
@@ -50,7 +67,7 @@ export default function SplashScreenView({ onFinish, duration = 2000 }) {
         duration: 1100,
         useNativeDriver: false,
       }),
-      Animated.delay(300),
+      Animated.delay(splashMs > 1500 ? splashMs - 1500 : 300),
       Animated.timing(screenOpacity, {
         toValue: 0,
         duration: 400,
@@ -58,99 +75,131 @@ export default function SplashScreenView({ onFinish, duration = 2000 }) {
       }),
     ]).start(() => {
       glow.stop();
-      onFinish();
+      if (onFinish) onFinish();
     });
-  }, []);
+
+    return () => glow.stop();
+  }, [splashMs]);
 
   return (
-    <Animated.View style={[styles.container, { opacity: screenOpacity }]}>
-      <StatusBar barStyle="light-content" backgroundColor="#050508" />
+    <Animated.View style={[styles.root, { opacity: screenOpacity }]}>
+      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+      <LinearGradient
+        colors={['#050508', '#0a0a12', '#050508']}
+        style={StyleSheet.absoluteFill}
+      />
 
       {/* Glow behind logo */}
-      <Animated.View style={[styles.glow, { opacity: glowAnim }]} />
+      <Animated.View
+        style={[
+          styles.glow,
+          {
+            backgroundColor: accentColor,
+            opacity: glowAnim,
+          },
+        ]}
+      />
 
-      {/* Logo — লোগোতেই Flixify লেখা আছে, আলাদা টেক্সট নেই */}
-      <Animated.View style={[
-        styles.logoWrap,
-        { opacity: logoOpacity, transform: [{ scale: logoScale }] },
-      ]}>
-        <Image source={LOGO} style={styles.logoImg} resizeMode="contain" />
+      {/* Logo */}
+      <Animated.View
+        style={[
+          styles.logoWrap,
+          { opacity: logoOpacity, transform: [{ scale: logoScale }] },
+        ]}
+      >
+        {logoUrl ? (
+          <Image
+            source={{ uri: logoUrl }}
+            style={[styles.logoImg, { borderColor: accentColor + '55' }]}
+            resizeMode="contain"
+          />
+        ) : (
+          <LinearGradient
+            colors={[accentColor, accentColor + '88']}
+            style={styles.logoEmojiBg}
+          >
+            <Text style={styles.logoEmojiText}>{logoEmoji}</Text>
+          </LinearGradient>
+        )}
       </Animated.View>
 
-      {/* Tagline */}
-      <Animated.Text style={[styles.tagText, { opacity: tagOpacity }]}>
-        Movies &amp; Series — All in One
-      </Animated.Text>
+      {/* App Name + Subtitle */}
+      <Animated.View style={{ opacity: tagOpacity, alignItems: 'center', marginTop: 22 }}>
+        <Text style={[styles.appName, { color: accentColor }]}>{appName}</Text>
+        {subtitle ? (
+          <Text style={styles.subtitle}>{subtitle}</Text>
+        ) : null}
+      </Animated.View>
 
       {/* Progress bar */}
-      <Animated.View style={styles.barTrack}>
-        <Animated.View style={[styles.barFill, { width: barWidth }]}>
-          <LinearGradient
-            colors={['#ff2d8d', '#7c3aed', '#1a6eff']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={StyleSheet.absoluteFill}
-          />
-        </Animated.View>
-      </Animated.View>
-
-      <Animated.Text style={[styles.loadingTxt, { opacity: tagOpacity }]}>
-        Loading...
-      </Animated.Text>
+      <View style={styles.barBg}>
+        <Animated.View
+          style={[styles.barFill, { width: barWidth, backgroundColor: accentColor }]}
+        />
+      </View>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    ...StyleSheet.absoluteFillObject,
+  root: {
+    flex: 1,
     backgroundColor: '#050508',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 999,
   },
   glow: {
     position: 'absolute',
-    width: 280,
-    height: 280,
-    borderRadius: 140,
-    backgroundColor: 'rgba(180,0,120,0.10)',
+    width: 260,
+    height: 260,
+    borderRadius: 130,
+    top: height * 0.28,
     alignSelf: 'center',
-    top: height / 2 - 200,
+    filter: 'blur(60px)', // Works on iOS; on Android use elevation tricks
   },
   logoWrap: {
     alignItems: 'center',
-    marginBottom: 28,
+    justifyContent: 'center',
   },
   logoImg: {
     width: 110,
     height: 110,
-    borderRadius: 24,
+    borderRadius: 28,
+    borderWidth: 2,
   },
-  tagText: {
-    color: 'rgba(255,255,255,0.30)',
-    fontSize: 12,
-    fontWeight: '500',
-    letterSpacing: 0.8,
-    marginBottom: 32,
+  logoEmojiBg: {
+    width: 110,
+    height: 110,
+    borderRadius: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  barTrack: {
+  logoEmojiText: {
+    fontSize: 54,
+  },
+  appName: {
+    fontSize: 34,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.45)',
+    marginTop: 6,
+    textAlign: 'center',
+    paddingHorizontal: 30,
+  },
+  barBg: {
+    position: 'absolute',
+    bottom: height * 0.12,
     width: width * 0.5,
-    height: 3,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 10,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 2,
     overflow: 'hidden',
   },
   barFill: {
     height: '100%',
-    borderRadius: 10,
-    overflow: 'hidden',
-  },
-  loadingTxt: {
-    color: 'rgba(255,255,255,0.22)',
-    fontSize: 11,
-    marginTop: 14,
-    letterSpacing: 1.2,
-    fontWeight: '500',
+    borderRadius: 2,
   },
 });
