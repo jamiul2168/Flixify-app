@@ -36,3 +36,8 @@ export const DEFAULT_TICKER_TEXT     = '🎬 Welcome to Flixify App!   •   ন
 
 // App version — force update check-এ ব্যবহার হবে
 export const APP_VERSION = '1.0.0';
+
+// ── Branding defaults (Admin Panel থেকে override হবে) ─────────────────────────
+// এগুলো শুধু fallback — admin panel থেকে real values আসবে
+export const DEFAULT_APP_NAME      = 'Flixify';
+export const DEFAULT_PRIMARY_COLOR = '#00e5ff';   // Admin থেকে যে color set করবে সেটাই ব্যবহার হবে
