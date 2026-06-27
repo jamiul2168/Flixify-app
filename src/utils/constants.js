@@ -19,11 +19,11 @@ export const COLORS = {
 // ── GAS Endpoints ──────────────────────────────────────────────────────────────
 // Movie data API (getMovieData) — admin panel থেকে content_api_url দিয়ে override হবে
 export const API_URL =
-  'https://script.google.com/macros/s/YOUR_CONTENT_GAS_URL_HERE/exec';
+  'https://script.google.com/macros/s/AKfycbx-rB3PNtoZVc6pm3GXq4kAeQkzvOTDkhJkL-XIQSIauG02Pp8gVMTA73bwb4MGvuMytg/exec';
 
 // App settings + users API — এটা তোমার নতুন code.gs deploy URL দাও
 export const APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/YOUR_SETTINGS_GAS_URL_HERE/exec';
+  'https://script.google.com/macros/s/AKfycbwtS79w-8doHBbTv48j2eINoew1mlaofDVX2IIhDYfAQG6MXkkn6pgyaU6r24Ss8gPlFQ/exec';
 
 export const DOMAIN = 'movieden.app';
 
