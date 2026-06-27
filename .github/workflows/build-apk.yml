@@ -1,4 +1,4 @@
-name: Build Flixify APK
+name: Build MovieDen APK
 
 on:
   push:
@@ -44,19 +44,29 @@ jobs:
         env:
           GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx4g"
 
-      - name: Upload APK
+      - name: Rename APK
+        run: |
+          mkdir -p output
+          cp android/app/build/outputs/apk/release/app-release.apk output/MovieDen-${{ github.ref_name || 'latest' }}.apk
+
+      - name: Upload APK as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Flixify-APK-${{ github.sha }}
-          path: android/app/build/outputs/apk/release/*.apk
+          name: MovieDen-APK-${{ github.sha }}
+          path: output/*.apk
           retention-days: 30
 
-      - name: Create Release
+      - name: Create GitHub Release (tag push এ)
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: android/app/build/outputs/apk/release/*.apk
-          name: "Flixify ${{ github.ref_name }}"
-          body: "APK download করুন এবং Android-এ install করুন।"
+          files: output/*.apk
+          name: "MovieDen ${{ github.ref_name }}"
+          body: |
+            ## MovieDen ${{ github.ref_name }}
+
+            👇 নিচে থেকে APK download করুন এবং Android এ install করুন।
+
+            > যদি আগের version install করা থাকে, আগে uninstall করুন তারপর install করুন।
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
