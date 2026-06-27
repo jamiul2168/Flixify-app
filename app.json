@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Flixify",
-    "slug": "flixifyapp",
+    "name": "MovieDen",
+    "slug": "movieden",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,7 +15,7 @@
       "**/*"
     ],
     "android": {
-      "package": "com.flixify.app",
+      "package": "com.movieden.app",
       "versionCode": 1,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
@@ -32,10 +32,10 @@
     "plugins": [
       "expo-splash-screen"
     ],
-    "scheme": "flixify",
+    "scheme": "movieden",
     "extra": {
       "eas": {
-        "projectId": "679f3439-690a-45b6-aeac-b05812aeec20"
+        "projectId": ""
       }
     }
   }

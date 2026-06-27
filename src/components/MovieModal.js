@@ -207,24 +207,24 @@ export default function MovieModal({ movie, visible, onClose, settings = {} }) {
         thumbnail ? `🖼️ ${thumbnail}` : null,
         ``,
         `━━━━━━━━━━━━━━━━━━━━`,
-        `📲 Watch FREE on Flixify App`,
+        `📲 Watch FREE on MovieDen App`,
         `━━━━━━━━━━━━━━━━━━━━`,
         ``,
         `💬 Join Telegram Community`,
-        `👉 https://t.me/flixifyofficialgrp`,
+        `👉 https://t.me/movieden`,
         ``,
         `🎯 Request a Movie / Series`,
-        `👉 https://request.flixify.jhtone.site/`,
+        `👉 https://movieden.app/`,
         ``,
         `━━━━━━━━━━━━━━━━━━━━`,
-        `#Flixify #FreeBD #BanglaMovie #HindiDubbed`,
+        `#MovieDen #FreeBD #BanglaMovie #HindiDubbed`,
       ].filter(l => l !== null).join('\n');
 
       await Share.share({
         message: lines,
-        title: `${movie.name} — Flixify`,
+        title: `${movie.name} — MovieDen`,
         // url only on iOS — thumbnail link so preview card appears
-        url: thumbnail || 'https://t.me/flixifyofficialgrp',
+        url: thumbnail || 'https://t.me/movieden',
       });
     } catch (_) {}
   };

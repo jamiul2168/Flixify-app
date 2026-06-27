@@ -39,11 +39,11 @@ export async function gasText(url) {
 // ── Persistent DeviceId ───────────────────────────────────────────────────────
 async function getOrCreateDeviceId() {
   try {
-    let id = await AsyncStorage.getItem('flixify_device_id');
+    let id = await AsyncStorage.getItem('movieden_device_id');
     if (!id) {
       const rand = () => Math.random().toString(36).substring(2, 10);
       id = `${Platform.OS}-${rand()}-${rand()}`;
-      await AsyncStorage.setItem('flixify_device_id', id);
+      await AsyncStorage.setItem('movieden_device_id', id);
     }
     return id;
   } catch (_) {
@@ -55,8 +55,8 @@ async function getOrCreateDeviceId() {
 // ── Android Notification Channel ─────────────────────────────────────────────
 async function ensureAndroidChannel() {
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('flixify-main', {
-      name:             'Flixify নোটিফিকেশন',
+    await Notifications.setNotificationChannelAsync('movieden-main', {
+      name:             'MovieDen নোটিফিকেশন',
       importance:       Notifications.AndroidImportance.MAX,
       vibrationPattern: [0, 250, 250, 250],
       lightColor:       '#eb0050',
@@ -78,7 +78,7 @@ export async function registerForPushNotifications() {
       finalStatus = status;
     }
     if (finalStatus !== 'granted') {
-      console.log('[Flixify] ❌ Permission denied');
+      console.log('[MovieDen] ❌ Permission denied');
       return { token: null, type: null };
     }
 
@@ -87,31 +87,31 @@ export async function registerForPushNotifications() {
       const projectId = '679f3439-690a-45b6-aeac-b05812aeec20';
       const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
       if (tokenData?.data) {
-        console.log('[Flixify] ✅ Expo token:', tokenData.data);
-        await AsyncStorage.setItem('flixify_push_token', tokenData.data);
-        await AsyncStorage.setItem('flixify_token_type', 'expo');
+        console.log('[MovieDen] ✅ Expo token:', tokenData.data);
+        await AsyncStorage.setItem('movieden_push_token', tokenData.data);
+        await AsyncStorage.setItem('movieden_token_type', 'expo');
         return { token: tokenData.data, type: 'expo' };
       }
     } catch (e) {
-      console.log('[Flixify] ⚠️ Expo token failed:', e.message);
+      console.log('[MovieDen] ⚠️ Expo token failed:', e.message);
     }
 
     // Method 2: FCM Device Token (local APK)
     try {
       const deviceTokenData = await Notifications.getDevicePushTokenAsync();
       if (deviceTokenData?.data) {
-        console.log('[Flixify] ✅ FCM token:', deviceTokenData.data);
-        await AsyncStorage.setItem('flixify_push_token', deviceTokenData.data);
-        await AsyncStorage.setItem('flixify_token_type', 'fcm');
+        console.log('[MovieDen] ✅ FCM token:', deviceTokenData.data);
+        await AsyncStorage.setItem('movieden_push_token', deviceTokenData.data);
+        await AsyncStorage.setItem('movieden_token_type', 'fcm');
         return { token: deviceTokenData.data, type: 'fcm' };
       }
     } catch (e) {
-      console.log('[Flixify] ❌ FCM token failed:', e.message);
+      console.log('[MovieDen] ❌ FCM token failed:', e.message);
     }
 
     return { token: null, type: null };
   } catch (e) {
-    console.log('[Flixify] ❌ registerForPushNotifications:', e.message);
+    console.log('[MovieDen] ❌ registerForPushNotifications:', e.message);
     return { token: null, type: null };
   }
 }
@@ -142,7 +142,7 @@ export async function showSystemNotification(title, body, image = '', link = '')
       sound:     true,
       priority:  Notifications.AndroidNotificationPriority.HIGH,
       vibrate:   [0, 250, 250, 250],
-      channelId: 'flixify-main',
+      channelId: 'movieden-main',
       // data এ link + image রাখো — onTap এ ব্যবহার হবে
       data: {
         link:  link  || '',
@@ -159,9 +159,9 @@ export async function showSystemNotification(title, body, image = '', link = '')
       content,
       trigger: null,
     });
-    console.log('[Flixify] ✅ System notification sent:', title, link ? `→ ${link}` : '');
+    console.log('[MovieDen] ✅ System notification sent:', title, link ? `→ ${link}` : '');
   } catch (e) {
-    console.log('[Flixify] ❌ showSystemNotification error:', e.message);
+    console.log('[MovieDen] ❌ showSystemNotification error:', e.message);
   }
 }
 
@@ -172,18 +172,18 @@ export async function showSystemNotification(title, body, image = '', link = '')
 export async function handleNotificationLink(link) {
   if (!link) return;
   try {
-    console.log('[Flixify] 🔗 Opening link:', link);
+    console.log('[MovieDen] 🔗 Opening link:', link);
     // Linking.canOpenURL দিয়ে check করো app handle করতে পারবে কিনা
     const canOpen = await Linking.canOpenURL(link);
     if (canOpen) {
       await Linking.openURL(link);
     } else {
       // fallback — https:// দিয়ে browser এ
-      const httpsLink = link.replace(/^flixify:\/\//, 'https://flixify.com/');
+      const httpsLink = link.replace(/^flixify:\/\//, 'https://movieden.app/');
       await Linking.openURL(httpsLink);
     }
   } catch (e) {
-    console.log('[Flixify] ❌ handleNotificationLink error:', e.message);
+    console.log('[MovieDen] ❌ handleNotificationLink error:', e.message);
     // last resort — browser
     try { await Linking.openURL(link); } catch (_) {}
   }
@@ -204,7 +204,7 @@ export async function fetchNotifications(lastSeenId = '') {
 // ── ✅ BACKGROUND TASK ────────────────────────────────────────────────────────
 TaskManager.defineTask(BACKGROUND_NOTIF_TASK, async () => {
   try {
-    const lastId = (await AsyncStorage.getItem('flixify_last_notif_id')) || '';
+    const lastId = (await AsyncStorage.getItem('movieden_last_notif_id')) || '';
     const notifs  = await fetchNotifications(lastId);
 
     if (notifs.length > 0) {
@@ -215,7 +215,7 @@ TaskManager.defineTask(BACKGROUND_NOTIF_TASK, async () => {
         latest.image || '',
         latest.link  || ''
       );
-      await AsyncStorage.setItem('flixify_last_notif_id', String(latest.id));
+      await AsyncStorage.setItem('movieden_last_notif_id', String(latest.id));
       return BackgroundFetch.BackgroundFetchResult.NewData;
     }
     return BackgroundFetch.BackgroundFetchResult.NoData;
@@ -238,10 +238,10 @@ export async function registerBackgroundFetch() {
         stopOnTerminate:  false,
         startOnBoot:      true,
       });
-      console.log('[Flixify] ✅ Background fetch registered');
+      console.log('[MovieDen] ✅ Background fetch registered');
     }
   } catch (e) {
-    console.log('[Flixify] ❌ registerBackgroundFetch error:', e.message);
+    console.log('[MovieDen] ❌ registerBackgroundFetch error:', e.message);
   }
 }
 
@@ -249,7 +249,7 @@ export async function registerBackgroundFetch() {
 export function setupNotificationListeners({ onReceive, onTap } = {}) {
   const receiveSub = Notifications.addNotificationReceivedListener(notif => {
     onReceive?.({
-      title: notif.request.content.title || 'Flixify',
+      title: notif.request.content.title || 'MovieDen',
       body:  notif.request.content.body  || '',
       image: notif.request.content.data?.image || '',
       link:  notif.request.content.data?.link  || '',

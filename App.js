@@ -1,16 +1,15 @@
 /**
- * App.js  [CLEAN v1]
+ * App.js — MovieDen
  *
- * ✅ Notification সিস্টেম সম্পূর্ণ বাদ
  * ✅ Active user ping (5 মিনিট পর পর)
  * ✅ Force Update Modal
  * ✅ In-App Banner (settings থেকে)
  * ✅ Maintenance Mode
- * ✅ Splash Screen
+ * ✅ Splash Screen (logo, name, bg — admin থেকে control)
  */
 
 import React, { useCallback, useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, AppState } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as SplashScreen from 'expo-splash-screen';
@@ -49,7 +48,6 @@ function AppContent() {
   }, []);
 
   // ── In-App Banner — settings থেকে ────────────────────────────────────────
-  // bannerEnabled ON হলে এবং আগে dismiss না করলে দেখাবে
   useEffect(() => {
     if (
       settings.bannerEnabled &&
@@ -69,10 +67,11 @@ function AppContent() {
   return (
     <View style={[styles.root, { paddingBottom: insets.bottom }]} onLayout={onLayout}>
 
-      {/* Splash */}
+      {/* Splash — settings থেকে logo, name, bg_url, bg_color নেবে */}
       {!splashDone && (
         <SplashScreenView
           duration={settings.splashDuration || 2000}
+          settings={settings}
           onFinish={() => setSplashDone(true)}
         />
       )}
@@ -135,4 +134,3 @@ const styles = StyleSheet.create({
   root:    { flex: 1, backgroundColor: '#050508' },
   content: { flex: 1 },
 });
-

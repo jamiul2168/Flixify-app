@@ -1,11 +1,9 @@
 /**
- * AppSettings.js  [CLEAN v3 — Branding Support]
+ * AppSettings.js — MovieDen
  *
- * ✅ Settings poll 3 সেকেন্ড — admin change দ্রুত apply হবে
- * ✅ content_api_url settings থেকে — admin panel থেকে change করা যাবে
- * ✅ content_domain settings থেকে
- * ✅ app_name, logo_url, logo_emoji, primary_color — admin থেকে control
- * ✅ splash_title, splash_subtitle — admin থেকে control
+ * ✅ Settings poll 30 সেকেন্ড — admin change দ্রুত apply হবে
+ * ✅ content_api_url, logo_url, app_name, colors — সব settings থেকে
+ * ✅ Branding (logo, name, splash, theme) — admin panel থেকে control হবে
  */
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
@@ -13,7 +11,6 @@ import {
   APPS_SCRIPT_URL, API_URL, DOMAIN,
   DEFAULT_TELEGRAM_URL, DEFAULT_REQUEST_URL, DEFAULT_AD_GATEWAY,
   DEFAULT_MOVIES_PER_PAGE, DEFAULT_TICKER_TEXT, APP_VERSION,
-  DEFAULT_APP_NAME, DEFAULT_PRIMARY_COLOR,
 } from './constants';
 
 function versionLessThan(a, b) {
@@ -36,7 +33,19 @@ async function gasText(url) {
 }
 
 const defaultSettings = {
-  // Content
+  // ── Branding ──
+  appName:            'MovieDen',
+  appTagline:         'Your ultimate movie destination',
+  appWebsite:         'https://movieden.app',
+  logoUrl:            '',
+  logoFallbackEmoji:  '🎬',
+  splashBgUrl:        '',
+  splashBgColor:      '#0f0f1a',
+  splashDuration:     2000,
+  themePrimaryColor:  '#3b7ef8',
+  themeBgColor:       '#0f0f1a',
+
+  // ── Content ──
   contentApiUrl:      API_URL,
   contentDomain:      DOMAIN,
   tickerText:         DEFAULT_TICKER_TEXT,
@@ -44,9 +53,8 @@ const defaultSettings = {
   requestUrl:         DEFAULT_REQUEST_URL,
   adGateway:          DEFAULT_AD_GATEWAY,
   moviesPerPage:      DEFAULT_MOVIES_PER_PAGE,
-  splashDuration:     2000,
 
-  // Maintenance / Force Update / Banner
+  // ── Features ──
   maintenanceMode:    false,
   maintenanceMessage: '🔧 আমরা কিছু কাজ করছি, একটু পরে আসুন।',
   bannerEnabled:      false,
@@ -56,15 +64,6 @@ const defaultSettings = {
   latestVersion:      APP_VERSION,
   apkDownloadUrl:     '',
   updateChangelog:    '',
-
-  // ── Branding (Admin Panel থেকে control) ──
-  appName:        DEFAULT_APP_NAME,
-  appTagline:     '',
-  logoUrl:        '',       // Image URL অথবা base64 data URI
-  logoEmoji:      '🎬',    // Fallback যদি logoUrl না থাকে
-  primaryColor:   DEFAULT_PRIMARY_COLOR,
-  splashTitle:    DEFAULT_APP_NAME,
-  splashSubtitle: '',
 };
 
 const AppSettingsContext = createContext({
@@ -86,35 +85,37 @@ export function AppSettingsProvider({ children }) {
       if (data?.status === 'ok' && data.settings) {
         const s = data.settings;
         setSettings({
-          // Content
-          contentApiUrl:      s.content_api_url    || API_URL,
-          contentDomain:      s.content_domain     || DOMAIN,
-          tickerText:         s.ticker_text         || DEFAULT_TICKER_TEXT,
-          telegramUrl:        s.telegram_url        || DEFAULT_TELEGRAM_URL,
-          requestUrl:         s.request_url         || DEFAULT_REQUEST_URL,
-          adGateway:          s.ad_url              || DEFAULT_AD_GATEWAY,
-          moviesPerPage:      parseInt(s.movies_per_page) || DEFAULT_MOVIES_PER_PAGE,
-          splashDuration:     parseInt(s.splash_duration) || 2000,
-
-          // Maintenance / Force Update / Banner
-          maintenanceMode:    s.maintenance_mode     === 'true',
-          maintenanceMessage: s.maintenance_message  || defaultSettings.maintenanceMessage,
-          bannerEnabled:      s.banner_enabled       === 'true',
-          bannerTitle:        s.banner_title         || '',
-          bannerMessage:      s.banner_message       || '',
-          forceUpdateEnabled: s.force_update_enabled === 'true',
-          latestVersion:      s.latest_version       || APP_VERSION,
-          apkDownloadUrl:     s.apk_download_url     || '',
-          updateChangelog:    s.update_changelog     || '',
-
           // ── Branding ──
-          appName:        s.app_name        || DEFAULT_APP_NAME,
-          appTagline:     s.app_tagline     || '',
-          logoUrl:        s.logo_url        || '',
-          logoEmoji:      s.logo_emoji      || '🎬',
-          primaryColor:   s.primary_color   || DEFAULT_PRIMARY_COLOR,
-          splashTitle:    s.splash_title    || s.app_name || DEFAULT_APP_NAME,
-          splashSubtitle: s.splash_subtitle || '',
+          appName:            s.app_name             || 'MovieDen',
+          appTagline:         s.app_tagline           || 'Your ultimate movie destination',
+          appWebsite:         s.app_website           || 'https://movieden.app',
+          logoUrl:            s.logo_url              || '',
+          logoFallbackEmoji:  s.logo_fallback_emoji   || '🎬',
+          splashBgUrl:        s.splash_bg_url         || '',
+          splashBgColor:      s.splash_bg_color       || '#0f0f1a',
+          splashDuration:     parseInt(s.splash_duration) || 2000,
+          themePrimaryColor:  s.theme_primary_color   || '#3b7ef8',
+          themeBgColor:       s.theme_bg_color        || '#0f0f1a',
+
+          // ── Content ──
+          contentApiUrl:      s.content_api_url       || API_URL,
+          contentDomain:      s.content_domain        || DOMAIN,
+          tickerText:         s.ticker_text           || DEFAULT_TICKER_TEXT,
+          telegramUrl:        s.telegram_url          || DEFAULT_TELEGRAM_URL,
+          requestUrl:         s.request_url           || DEFAULT_REQUEST_URL,
+          adGateway:          s.ad_url                || DEFAULT_AD_GATEWAY,
+          moviesPerPage:      parseInt(s.movies_per_page) || DEFAULT_MOVIES_PER_PAGE,
+
+          // ── Features ──
+          maintenanceMode:    s.maintenance_mode      === 'true',
+          maintenanceMessage: s.maintenance_message   || defaultSettings.maintenanceMessage,
+          bannerEnabled:      s.banner_enabled        === 'true',
+          bannerTitle:        s.banner_title          || '',
+          bannerMessage:      s.banner_message        || '',
+          forceUpdateEnabled: s.force_update_enabled  === 'true',
+          latestVersion:      s.latest_version        || APP_VERSION,
+          apkDownloadUrl:     s.apk_download_url      || '',
+          updateChangelog:    s.update_changelog      || '',
         });
       }
     } catch (e) {
@@ -126,8 +127,8 @@ export function AppSettingsProvider({ children }) {
 
   useEffect(() => {
     load();
-    // প্রতি ৩ সেকেন্ডে reload
-    const iv = setInterval(load, 3000);
+    // প্রতি ৩০ সেকেন্ডে reload — admin change দ্রুত apply হবে
+    const iv = setInterval(load, 30000);
     return () => clearInterval(iv);
   }, []);
 

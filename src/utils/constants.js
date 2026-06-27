@@ -17,27 +17,23 @@ export const COLORS = {
 };
 
 // ── GAS Endpoints ──────────────────────────────────────────────────────────────
-// Movie data API (getMovieData)
+// Movie data API (getMovieData) — admin panel থেকে content_api_url দিয়ে override হবে
 export const API_URL =
-  'https://script.google.com/macros/s/AKfycbx-rB3PNtoZVc6pm3GXq4kAeQkzvOTDkhJkL-XIQSIauG02Pp8gVMTA73bwb4MGvuMytg/exec';
+  'https://script.google.com/macros/s/YOUR_CONTENT_GAS_URL_HERE/exec';
 
-// App settings + users + notifications API
+// App settings + users API — এটা তোমার নতুন code.gs deploy URL দাও
 export const APPS_SCRIPT_URL =
-  'https://script.google.com/macros/s/AKfycbwtS79w-8doHBbTv48j2eINoew1mlaofDVX2IIhDYfAQG6MXkkn6pgyaU6r24Ss8gPlFQ/exec';
+  'https://script.google.com/macros/s/YOUR_SETTINGS_GAS_URL_HERE/exec';
 
-export const DOMAIN = 'new1.flixify.jhtone.site';
+export const DOMAIN = 'movieden.app';
 
 // ── Default values (GAS Settings দিয়ে override হবে) ──────────────────────────
-export const DEFAULT_TELEGRAM_URL    = 'https://t.me/flixifyofficialgrp';
-export const DEFAULT_REQUEST_URL     = 'https://request.flixify.jhtone.site/';
-export const DEFAULT_AD_GATEWAY      = 'https://www.profitablecpmratenetwork.com/y66v10fk?key=452bac688b016ffbca9267b166075e71';
+export const DEFAULT_TELEGRAM_URL    = 'https://t.me/movieden';
+export const DEFAULT_REQUEST_URL     = 'https://request.movieden.app/';
+export const DEFAULT_AD_GATEWAY      = '';
 export const DEFAULT_MOVIES_PER_PAGE = 18;
-export const DEFAULT_TICKER_TEXT     = '🎬 Welcome to Flixify App!   •   নতুন মুভি পেতে Telegram গ্রুপে join করুন   •   Request করুন আপনার পছন্দের মুভি 🔥';
+export const DEFAULT_TICKER_TEXT     = '🎬 Welcome to MovieDen!   •   নতুন মুভি প্রতিদিন আসছে   •   Request করুন আপনার পছন্দের মুভি 🔥';
 
 // App version — force update check-এ ব্যবহার হবে
+// নতুন version release এর সময় এটা বাড়াও এবং app.json এও বাড়াও
 export const APP_VERSION = '1.0.0';
-
-// ── Branding defaults (Admin Panel থেকে override হবে) ─────────────────────────
-// এগুলো শুধু fallback — admin panel থেকে real values আসবে
-export const DEFAULT_APP_NAME      = 'Flixify';
-export const DEFAULT_PRIMARY_COLOR = '#00e5ff';   // Admin থেকে যে color set করবে সেটাই ব্যবহার হবে

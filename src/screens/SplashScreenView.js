@@ -1,8 +1,9 @@
 /**
- * SplashScreenView.js  [Branding-aware]
+ * SplashScreenView.js — MovieDen
  *
- * ✅ Admin panel থেকে app_name, logo_url, logo_emoji, splash_title,
- *    splash_subtitle, primary_color সব dynamic
+ * ✅ Admin panel থেকে splash_bg_url, splash_bg_color control হবে
+ * ✅ logo_url থাকলে network থেকে load, না থাকলে local assets/logo.png
+ * ✅ app_name admin থেকে নেবে
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -10,14 +11,11 @@ import {
   View, Text, StyleSheet, Animated, Dimensions, StatusBar, Image,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { COLORS } from '../utils/constants';
-import { useAppSettings } from '../utils/AppSettings';
 
 const { width, height } = Dimensions.get('window');
+const LOCAL_LOGO = require('../assets/logo.png');
 
-export default function SplashScreenView({ onFinish, duration = 2000 }) {
-  const { settings } = useAppSettings();
-
+export default function SplashScreenView({ onFinish, duration = 2000, settings = {} }) {
   const logoScale     = useRef(new Animated.Value(0.4)).current;
   const logoOpacity   = useRef(new Animated.Value(0)).current;
   const tagOpacity    = useRef(new Animated.Value(0)).current;
@@ -25,13 +23,11 @@ export default function SplashScreenView({ onFinish, duration = 2000 }) {
   const screenOpacity = useRef(new Animated.Value(1)).current;
   const glowAnim      = useRef(new Animated.Value(0.3)).current;
 
-  // Branding values
-  const appName      = settings.splashTitle    || settings.appName || 'Flixify';
-  const subtitle     = settings.splashSubtitle || settings.appTagline || '';
-  const logoUrl      = settings.logoUrl        || '';
-  const logoEmoji    = settings.logoEmoji      || '🎬';
-  const accentColor  = settings.primaryColor   || COLORS.cyan;
-  const splashMs     = settings.splashDuration || duration;
+  const appName   = settings.appName      || 'MovieDen';
+  const appTagline= settings.appTagline   || 'Your ultimate movie destination';
+  const logoUrl   = settings.logoUrl      || '';
+  const bgColor   = settings.splashBgColor|| '#050508';
+  const bgUrl     = settings.splashBgUrl  || '';
 
   useEffect(() => {
     const glow = Animated.loop(
@@ -64,10 +60,10 @@ export default function SplashScreenView({ onFinish, duration = 2000 }) {
       }),
       Animated.timing(barWidth, {
         toValue: width * 0.5,
-        duration: 1100,
+        duration: duration - 900 > 400 ? duration - 900 : 1100,
         useNativeDriver: false,
       }),
-      Animated.delay(splashMs > 1500 ? splashMs - 1500 : 300),
+      Animated.delay(300),
       Animated.timing(screenOpacity, {
         toValue: 0,
         duration: 400,
@@ -75,131 +71,126 @@ export default function SplashScreenView({ onFinish, duration = 2000 }) {
       }),
     ]).start(() => {
       glow.stop();
-      if (onFinish) onFinish();
+      onFinish();
     });
-
-    return () => glow.stop();
-  }, [splashMs]);
+  }, []);
 
   return (
-    <Animated.View style={[styles.root, { opacity: screenOpacity }]}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      <LinearGradient
-        colors={['#050508', '#0a0a12', '#050508']}
-        style={StyleSheet.absoluteFill}
-      />
+    <Animated.View style={[styles.container, { opacity: screenOpacity, backgroundColor: bgColor }]}>
+      <StatusBar barStyle="light-content" backgroundColor={bgColor} />
+
+      {/* Background image যদি থাকে */}
+      {bgUrl ? (
+        <Image
+          source={{ uri: bgUrl }}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode="cover"
+        />
+      ) : null}
+
+      {/* Dark overlay */}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.55)' }]} />
 
       {/* Glow behind logo */}
-      <Animated.View
-        style={[
-          styles.glow,
-          {
-            backgroundColor: accentColor,
-            opacity: glowAnim,
-          },
-        ]}
-      />
+      <Animated.View style={[styles.glow, { opacity: glowAnim }]} />
 
-      {/* Logo */}
-      <Animated.View
-        style={[
-          styles.logoWrap,
-          { opacity: logoOpacity, transform: [{ scale: logoScale }] },
-        ]}
-      >
-        {logoUrl ? (
-          <Image
-            source={{ uri: logoUrl }}
-            style={[styles.logoImg, { borderColor: accentColor + '55' }]}
-            resizeMode="contain"
-          />
-        ) : (
-          <LinearGradient
-            colors={[accentColor, accentColor + '88']}
-            style={styles.logoEmojiBg}
-          >
-            <Text style={styles.logoEmojiText}>{logoEmoji}</Text>
-          </LinearGradient>
-        )}
+      {/* Logo — network থেকে যদি logo_url থাকে, না থাকলে local */}
+      <Animated.View style={[
+        styles.logoWrap,
+        { opacity: logoOpacity, transform: [{ scale: logoScale }] },
+      ]}>
+        <Image
+          source={logoUrl ? { uri: logoUrl } : LOCAL_LOGO}
+          style={styles.logoImg}
+          resizeMode="contain"
+        />
       </Animated.View>
 
-      {/* App Name + Subtitle */}
-      <Animated.View style={{ opacity: tagOpacity, alignItems: 'center', marginTop: 22 }}>
-        <Text style={[styles.appName, { color: accentColor }]}>{appName}</Text>
-        {subtitle ? (
-          <Text style={styles.subtitle}>{subtitle}</Text>
-        ) : null}
-      </Animated.View>
+      {/* App Name — admin থেকে নেবে */}
+      <Animated.Text style={[styles.appName, { opacity: tagOpacity }]}>
+        {appName}
+      </Animated.Text>
+
+      {/* Tagline */}
+      <Animated.Text style={[styles.tagText, { opacity: tagOpacity }]}>
+        {appTagline}
+      </Animated.Text>
 
       {/* Progress bar */}
-      <View style={styles.barBg}>
-        <Animated.View
-          style={[styles.barFill, { width: barWidth, backgroundColor: accentColor }]}
-        />
-      </View>
+      <Animated.View style={styles.barTrack}>
+        <Animated.View style={[styles.barFill, { width: barWidth }]}>
+          <LinearGradient
+            colors={['#ff2d8d', '#7c3aed', '#1a6eff']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={StyleSheet.absoluteFill}
+          />
+        </Animated.View>
+      </Animated.View>
+
+      <Animated.Text style={[styles.loadingTxt, { opacity: tagOpacity }]}>
+        Loading...
+      </Animated.Text>
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#050508',
+  container: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 999,
   },
   glow: {
     position: 'absolute',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    top: height * 0.28,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(180,0,120,0.10)',
     alignSelf: 'center',
-    filter: 'blur(60px)', // Works on iOS; on Android use elevation tricks
+    top: height / 2 - 200,
   },
   logoWrap: {
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 16,
   },
   logoImg: {
     width: 110,
     height: 110,
-    borderRadius: 28,
-    borderWidth: 2,
-  },
-  logoEmojiBg: {
-    width: 110,
-    height: 110,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoEmojiText: {
-    fontSize: 54,
+    borderRadius: 24,
   },
   appName: {
-    fontSize: 34,
-    fontWeight: '800',
+    color: '#ffffff',
+    fontSize: 28,
+    fontWeight: '900',
     letterSpacing: -0.5,
+    marginBottom: 6,
   },
-  subtitle: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.45)',
-    marginTop: 6,
-    textAlign: 'center',
-    paddingHorizontal: 30,
+  tagText: {
+    color: 'rgba(255,255,255,0.40)',
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.8,
+    marginBottom: 32,
   },
-  barBg: {
-    position: 'absolute',
-    bottom: height * 0.12,
+  barTrack: {
     width: width * 0.5,
-    height: 2,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 2,
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 10,
     overflow: 'hidden',
   },
   barFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  loadingTxt: {
+    color: 'rgba(255,255,255,0.22)',
+    fontSize: 11,
+    marginTop: 14,
+    letterSpacing: 1.2,
+    fontWeight: '500',
   },
 });

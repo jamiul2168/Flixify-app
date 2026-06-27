@@ -22,7 +22,7 @@ export default function HomeScreen({ show18 = false, settings = {} }) {
 
   // settings থেকে dynamic values
   const moviesPerPage  = settings.moviesPerPage  || 18;
-  const tickerText     = settings.tickerText     || '🎬 Flixify তে স্বাগতম!';
+  const tickerText     = settings.tickerText     || '🎬 MovieDen তে স্বাগতম!';
   const contentApiUrl  = settings.contentApiUrl  || undefined;
   const contentDomain  = settings.contentDomain  || undefined;
 
@@ -159,7 +159,7 @@ export default function HomeScreen({ show18 = false, settings = {} }) {
       <View style={[styles.container, { paddingTop: insets.top }]}>
         <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
         <View style={styles.header}>
-          <Text style={styles.logoTxt}>Flixify</Text>
+          <Text style={styles.logoTxt}>{settings.appName || 'MovieDen'}</Text>
           <View style={{ flex: 1 }} />
           <View style={[styles.searchBox, { opacity: 0.35 }]}>
             <Ionicons name="search" size={18} color={COLORS.cyan} style={{ marginRight: 10 }} />
@@ -196,7 +196,7 @@ export default function HomeScreen({ show18 = false, settings = {} }) {
 
       {/* ── HEADER ── */}
       <View style={styles.header}>
-        <Text style={styles.logoTxt}>Flixify</Text>
+        <Text style={styles.logoTxt}>{settings.appName || 'MovieDen'}</Text>
         {show18 && (
           <View style={styles.adultBadge}>
             <Text style={styles.adultBadgeTxt}>18+</Text>
