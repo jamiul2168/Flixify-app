@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
-  StyleSheet, StatusBar, ActivityIndicator, ScrollView,
-  RefreshControl, Dimensions, Animated, Image,
+  StyleSheet, StatusBar, Animated, Image,
+  Dimensions, ScrollView, RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,22 +12,29 @@ import { fetchMovies, normalizeMovie } from '../utils/api';
 import MovieCard from '../components/MovieCard';
 import MovieModal from '../components/MovieModal';
 import { SkeletonGrid } from '../components/SkeletonCard';
-// LiveUserBadge removed
 
 const LOGO = require('../../assets/logo.png');
 const { width } = Dimensions.get('window');
+const CYAN   = '#00f2ff';
+const PINK   = '#ff0059';
+const BG     = '#030303';
+const BG1    = '#0f0f0f';
+const BG2    = '#111111';
+const BORDER = 'rgba(0,242,255,0.12)';
 
 export default function HomeScreen({ show18 = false, settings = {} }) {
   const insets = useSafeAreaInsets();
 
-  // settings থেকে dynamic values
-  const moviesPerPage  = settings.moviesPerPage  || 18;
-  const tickerText     = settings.tickerText     || '🎬 MovieDen তে স্বাগতম!';
-  const contentApiUrl  = settings.contentApiUrl  || undefined;
-  const contentDomain  = settings.contentDomain  || undefined;
+  const moviesPerPage = settings.moviesPerPage || 18;
+  const tickerText    = settings.tickerText    || '🎬 MovieDen তে স্বাগতম!';
+  const contentApiUrl = settings.contentApiUrl || undefined;
+  const contentDomain = settings.contentDomain || undefined;
+  const telegramUrl   = settings.telegramUrl   || 'https://t.me/movieden';
+  const requestUrl    = settings.requestUrl    || 'https://movieden.app/';
+  const appName       = settings.appName       || 'MovieDen';
+  const logoUrl       = settings.logoUrl       || '';
 
   const [allMovies,    setAllMovies]    = useState([]);
-  const [filtered,     setFiltered]     = useState([]);
   const [displayed,    setDisplayed]    = useState([]);
   const [categories,   setCategories]   = useState(['All']);
   const [activeCat,    setActiveCat]    = useState('all');
@@ -41,44 +48,47 @@ export default function HomeScreen({ show18 = false, settings = {} }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [suggestions,  setSuggestions]  = useState([]);
   const [showSugg,     setShowSugg]     = useState(false);
+  const [showAdult,    setShowAdult]    = useState(false);
+  const [popularList,  setPopularList]  = useState([]);
 
   const tickX    = useRef(new Animated.Value(width)).current;
   const tickAnim = useRef(null);
+  const searchRef = useRef(null);
 
+  // Ticker animation
   useEffect(() => {
-    // আগের animation বন্ধ করো
     if (tickAnim.current) tickAnim.current.stop();
-    // শুরু থেকে reset
     tickX.setValue(width);
-    // ✅ Infinite loop — শেষ হলে আবার শুরু থেকে
     tickAnim.current = Animated.loop(
-      Animated.timing(tickX, {
-        toValue:        -width * 5,
-        duration:       25000,
-        useNativeDriver: true,
-      })
+      Animated.timing(tickX, { toValue: -width * 5, duration: 28000, useNativeDriver: true })
     );
     tickAnim.current.start();
     return () => { if (tickAnim.current) tickAnim.current.stop(); };
-  }, [tickerText]); // ✅ tickerText change হলে restart
+  }, [tickerText]);
 
-  const load = useCallback(async () => {
+  const getFiltered = useCallback((movies, cat, q, adult) => {
+    return movies.filter(m => {
+      const matchQ   = !q || m.name.toLowerCase().includes(q.toLowerCase());
+      const matchCat = cat === 'all' || (m.categories || []).some(c => c.toLowerCase() === cat.toLowerCase());
+      const matchAdult = adult ? m.isBlurred : true;
+      return matchQ && matchCat && matchAdult;
+    });
+  }, []);
+
+  const load = useCallback(async (isRefresh = false) => {
     try {
+      if (!isRefresh) setLoading(true);
       setError(null);
-      const data = await fetchMovies(contentApiUrl, contentDomain);
-      const movies = (data.movies || [])
-        .filter(m => m.source === 'MovieDB')
-        .map(normalizeMovie);  // ← normalizeMovie দিয়ে সব field সেট
-
+      const data   = await fetchMovies(contentApiUrl, contentDomain);
+      const movies = (data.movies || []).filter(m => m.source === 'MovieDB').map(normalizeMovie);
       setAllMovies(movies);
-
       const cats = new Set();
       movies.forEach(m => m.categories.forEach(c => cats.add(c)));
       setCategories(['All', ...Array.from(cats).sort()]);
-
-      setFiltered(movies);
-      setDisplayed(movies.slice(0, moviesPerPage));
-      setHasMore(movies.length > moviesPerPage);
+      const filtered = getFiltered(movies, 'all', '', false);
+      setDisplayed(filtered.slice(0, moviesPerPage));
+      setHasMore(filtered.length > moviesPerPage);
+      setPopularList(movies.slice(0, 12));
       setPage(1);
     } catch (e) {
       setError(e.message);
@@ -86,361 +96,315 @@ export default function HomeScreen({ show18 = false, settings = {} }) {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [moviesPerPage]);
+  }, [contentApiUrl, contentDomain, moviesPerPage, getFiltered]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    if (!allMovies.length) return;
-    let result = allMovies.filter(m => {
-      const s = m.name.toLowerCase().includes(search.toLowerCase());
-      const c = activeCat === 'all'
-        || m.categories.some(x => x.toLowerCase() === activeCat.toLowerCase());
-      return s && c;
-    });
-    if (show18) {
-      const adult  = result.filter(m => m.isBlurred);
-      const normal = result.filter(m => !m.isBlurred);
-      result = [...adult, ...normal];
-    }
-    setFiltered(result);
-    setDisplayed(result.slice(0, moviesPerPage));
-    setHasMore(result.length > moviesPerPage);
+  const applyFilter = (cat, q, adult) => {
+    const filtered = getFiltered(allMovies, cat, q, adult);
+    setDisplayed(filtered.slice(0, moviesPerPage));
+    setHasMore(filtered.length > moviesPerPage);
     setPage(1);
-  }, [search, activeCat, show18, allMovies, moviesPerPage]);
-
-  useEffect(() => {
-    if (search.length > 0) {
-      setSuggestions(
-        allMovies
-          .filter(m => m.name.toLowerCase().includes(search.toLowerCase()))
-          .slice(0, 6)
-      );
-      setShowSugg(true);
-    } else {
-      setShowSugg(false);
-    }
-  }, [search, allMovies]);
-
-  const searchRef = useRef(null);
-  const refreshRotate = useRef(new Animated.Value(0)).current;
-
-  const startRefreshAnim = () => {
-    refreshRotate.setValue(0);
-    Animated.loop(
-      Animated.timing(refreshRotate, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      })
-    ).start();
   };
 
-  const stopRefreshAnim = () => refreshRotate.stopAnimation();
+  const onCatPress = (cat) => {
+    const key = cat === 'All' ? 'all' : cat;
+    setActiveCat(key);
+    applyFilter(key, search, showAdult);
+  };
+
+  const onSearch = (q) => {
+    setSearch(q);
+    if (q.length > 1) {
+      const sugg = allMovies.filter(m => m.name.toLowerCase().includes(q.toLowerCase())).slice(0, 6);
+      setSuggestions(sugg); setShowSugg(true);
+    } else { setShowSugg(false); }
+    applyFilter(activeCat, q, showAdult);
+  };
+
+  const onToggleAdult = () => {
+    const next = !showAdult;
+    setShowAdult(next);
+    applyFilter(activeCat, search, next);
+  };
 
   const loadMore = () => {
-    if (!hasMore) return;
-    const np   = page + 1;
-    const more = filtered.slice(0, np * moviesPerPage);
+    const filtered = getFiltered(allMovies, activeCat, search, showAdult);
+    const nextPage = page + 1;
+    const more = filtered.slice(0, nextPage * moviesPerPage);
     setDisplayed(more);
-    setHasMore(filtered.length > more.length);
-    setPage(np);
+    setHasMore(more.length < filtered.length);
+    setPage(nextPage);
   };
 
-  const openModal = (movie) => {
-    setSelMovie(movie);
-    setModalVisible(true);
-    setShowSugg(false);
-  };
+  const openModal = (movie) => { setSelMovie(movie); setModalVisible(true); };
 
-  // ── Loading skeleton ────────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <View style={[styles.container, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-        <View style={styles.header}>
-          <Text style={styles.logoTxt}>{settings.appName || 'MovieDen'}</Text>
-          <View style={{ flex: 1 }} />
-          <View style={[styles.searchBox, { opacity: 0.35 }]}>
-            <Ionicons name="search" size={18} color={COLORS.cyan} style={{ marginRight: 10 }} />
-            <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 14 }}>Loading…</Text>
-          </View>
-        </View>
-        <SkeletonGrid />
-      </View>
-    );
-  }
-
-  // ── Error ───────────────────────────────────────────────────────────────────
-  if (error) {
-    return (
-      <View style={styles.center}>
-        <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-        <Ionicons name="cloud-offline-outline" size={64} color={COLORS.red} />
-        <Text style={styles.errTitle}>Failed to Load</Text>
-        <Text style={styles.errSub}>{error}</Text>
-        <TouchableOpacity
-          style={styles.retryBtn}
-          onPress={() => { setLoading(true); load(); }}
-        >
-          <Text style={styles.retryTxt}>Retry</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // ── Main UI ─────────────────────────────────────────────────────────────────
-  return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
-
-      {/* ── HEADER ── */}
-      <View style={styles.header}>
-        <Text style={styles.logoTxt}>{settings.appName || 'MovieDen'}</Text>
-        {show18 && (
-          <View style={styles.adultBadge}>
-            <Text style={styles.adultBadgeTxt}>18+</Text>
-          </View>
+  // ── HEADER ──────────────────────────────────────────────────────────────────
+  const Header = () => (
+    <View style={[s.header, { paddingTop: insets.top + 8 }]}>
+      {/* Logo + Name */}
+      <View style={s.headerLeft}>
+        {logoUrl ? (
+          <Image source={{ uri: logoUrl }} style={s.headerLogo} />
+        ) : (
+          <Image source={LOGO} style={s.headerLogo} />
         )}
-
-        <View style={{ flex: 1 }} />
-
-        <View style={styles.searchBox}>
-          <Ionicons name="search" size={18} color={COLORS.pink} style={{ marginRight: 10 }} />
-          <TextInput
-            ref={searchRef}
-            style={styles.searchInput}
-            placeholder="Search movies & series…"
-            placeholderTextColor="rgba(255,255,255,0.28)"
-            value={search}
-            onChangeText={setSearch}
-            onFocus={() => search.length > 0 && setShowSugg(true)}
-          />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => { setSearch(''); setShowSugg(false); }}>
-              <Ionicons name="close-circle" size={19} color="rgba(255,255,255,0.35)" />
-            </TouchableOpacity>
-          )}
-        </View>
+        <Text style={s.headerName}>{appName}</Text>
       </View>
+      {/* Search */}
+      <View style={s.searchBox}>
+        <Ionicons name="search" size={14} color={CYAN} style={{ marginRight: 6 }} />
+        <TextInput
+          ref={searchRef}
+          style={s.searchInput}
+          placeholder="Search movies, series..."
+          placeholderTextColor="rgba(255,255,255,0.35)"
+          value={search}
+          onChangeText={onSearch}
+          returnKeyType="search"
+        />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => { setSearch(''); setShowSugg(false); applyFilter(activeCat, '', showAdult); }}>
+            <Ionicons name="close-circle" size={15} color="rgba(255,255,255,0.4)" />
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
+  );
 
-      {/* ── SUGGESTIONS ── */}
-      {showSugg && suggestions.length > 0 && (
-        <View style={styles.suggBox}>
-          {suggestions.map((m, i) => (
-            <TouchableOpacity
-              key={i}
-              style={[styles.suggRow, i < suggestions.length - 1 && styles.suggBorder]}
-              onPress={() => { openModal(m); setSearch(''); setShowSugg(false); }}
-            >
-              <Image source={{ uri: m.thumbnail }} style={styles.suggImg} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.suggName} numberOfLines={1}>{m.name}</Text>
-                <View style={styles.suggPill}>
-                  <Text style={styles.suggPillTxt}>{m.type || 'Movie'}</Text>
-                </View>
-              </View>
+  // ── TICKER ──────────────────────────────────────────────────────────────────
+  const Ticker = () => (
+    <View style={s.ticker}>
+      <Animated.Text style={[s.tickerText, { transform: [{ translateX: tickX }] }]}>
+        {tickerText}
+      </Animated.Text>
+    </View>
+  );
+
+  // ── ACTION BUTTONS ───────────────────────────────────────────────────────────
+  const ActionBtns = () => (
+    <View style={s.btnRow}>
+      <TouchableOpacity style={[s.actionBtn, s.btnTg]} onPress={() => require('react-native').Linking.openURL(telegramUrl)}>
+        <Ionicons name="paper-plane" size={14} color={CYAN} />
+        <Text style={[s.actionBtnTxt, { color: CYAN }]}>Telegram</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[s.actionBtn, s.btnReq]} onPress={() => require('react-native').Linking.openURL(requestUrl)}>
+        <Ionicons name="add-circle-outline" size={14} color="#a78bfa" />
+        <Text style={[s.actionBtnTxt, { color: '#a78bfa' }]}>Request</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={[s.actionBtn, showAdult ? s.btn18On : s.btn18]} onPress={onToggleAdult}>
+        <Ionicons name={showAdult ? 'eye' : 'eye-off-outline'} size={14} color={showAdult ? '#00ff91' : PINK} />
+        <Text style={[s.actionBtnTxt, { color: showAdult ? '#00ff91' : PINK }]}>
+          {showAdult ? 'Hide 18+' : 'Show 18+'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // ── POPULAR SLIDER ───────────────────────────────────────────────────────────
+  const PopularSlider = () => {
+    if (!popularList.length) return null;
+    return (
+      <View style={s.sliderSection}>
+        <View style={s.sliderHdr}>
+          <View style={s.titleBar} />
+          <Ionicons name="flame" size={14} color={PINK} style={{ marginRight: 6 }} />
+          <Text style={s.sliderTitle}>Popular Movies</Text>
+        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 14, gap: 10 }}>
+          {popularList.map((m, i) => (
+            <TouchableOpacity key={i} style={s.popularCard} onPress={() => openModal(m)} activeOpacity={0.8}>
+              <Image source={{ uri: m.thumbnail }} style={s.popularImg} />
+              <Text style={s.popularName} numberOfLines={1}>{m.name}</Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
+      </View>
+    );
+  };
+
+  // ── CATEGORIES ───────────────────────────────────────────────────────────────
+  const Categories = () => (
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.catScroll}>
+      {categories.map((cat, i) => {
+        const key    = cat === 'All' ? 'all' : cat;
+        const active = activeCat === key;
+        return (
+          <TouchableOpacity key={i} style={[s.chip, active && s.chipActive]} onPress={() => onCatPress(cat)} activeOpacity={0.8}>
+            <Text style={[s.chipTxt, active && s.chipTxtActive]}>{cat}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+
+  // ── SUGGESTIONS ──────────────────────────────────────────────────────────────
+  const Suggestions = () => {
+    if (!showSugg || !suggestions.length) return null;
+    return (
+      <View style={s.suggBox}>
+        {suggestions.map((m, i) => (
+          <TouchableOpacity key={i} style={s.suggItem} onPress={() => { setShowSugg(false); setSearch(m.name); openModal(m); }}>
+            <Image source={{ uri: m.thumbnail }} style={s.suggImg} />
+            <View style={{ flex: 1 }}>
+              <Text style={s.suggName} numberOfLines={1}>{m.name}</Text>
+              <View style={s.suggBadge}>
+                <Text style={s.suggType}>{m.type || 'Movie'}</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+
+  // ── SECTION HEADER ───────────────────────────────────────────────────────────
+  const SectionHdr = () => (
+    <View style={s.sectionHdr}>
+      <View style={s.titleBar} />
+      <Ionicons name="time-outline" size={16} color={CYAN} style={{ marginRight: 6 }} />
+      <Text style={s.sectionTitle}>Latest Updates</Text>
+    </View>
+  );
+
+  // ── LOAD MORE ────────────────────────────────────────────────────────────────
+  const LoadMoreBtn = () => {
+    if (!hasMore) return null;
+    return (
+      <TouchableOpacity style={s.loadMoreBtn} onPress={loadMore} activeOpacity={0.8}>
+        <Text style={s.loadMoreTxt}>Load More</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  // ── ERROR ────────────────────────────────────────────────────────────────────
+  if (error) return (
+    <View style={s.errBox}>
+      <Ionicons name="alert-circle-outline" size={48} color={PINK} />
+      <Text style={s.errTxt}>Failed to load movies</Text>
+      <TouchableOpacity style={s.retryBtn} onPress={() => load()}>
+        <Text style={s.retryTxt}>Retry</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const ListHeader = () => (
+    <>
+      <Ticker />
+      <ActionBtns />
+      <PopularSlider />
+      <Categories />
+      <SectionHdr />
+      {showSugg && <Suggestions />}
+    </>
+  );
+
+  return (
+    <View style={s.root}>
+      <StatusBar barStyle="light-content" backgroundColor={BG} />
+      <Header />
+
+      {loading ? (
+        <>
+          <ListHeader />
+          <SkeletonGrid />
+        </>
+      ) : (
+        <FlatList
+          data={displayed}
+          keyExtractor={(item) => item.id}
+          numColumns={2}
+          columnWrapperStyle={s.colWrap}
+          contentContainerStyle={[s.listContent, { paddingBottom: insets.bottom + 80 }]}
+          ListHeaderComponent={<ListHeader />}
+          ListFooterComponent={<LoadMoreBtn />}
+          renderItem={({ item }) => (
+            <MovieCard
+              movie={item}
+              show18={show18}
+              onPress={() => openModal(item)}
+              appName={appName}
+            />
+          )}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(true); }} tintColor={CYAN} />}
+          showsVerticalScrollIndicator={false}
+          onScrollBeginDrag={() => setShowSugg(false)}
+        />
       )}
 
-      {/* ── TICKER — GAS settings থেকে ── */}
-      <View style={styles.ticker}>
-        <Animated.Text
-          style={[styles.tickerTxt, { transform: [{ translateX: tickX }] }]}
-          numberOfLines={1}
-        >
-          {tickerText}
-        </Animated.Text>
-      </View>
-
-      {/* ── CATEGORY CHIPS ── */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.catScroll}
-        contentContainerStyle={styles.catContent}
-      >
-        {categories.map((cat, i) => {
-          const key = cat === 'All' ? 'all' : cat;
-          const on  = activeCat === key;
-          return (
-            <TouchableOpacity
-              key={i}
-              style={[styles.catChip, on && styles.catChipOn]}
-              onPress={() => setActiveCat(key)}
-            >
-              <Text style={[styles.catTxt, on && styles.catTxtOn]}>{cat}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      {/* ── GRID ── */}
-      <FlatList
-        data={displayed}
-        keyExtractor={item => item.id}
-        numColumns={2}
-        columnWrapperStyle={styles.row}
-        contentContainerStyle={styles.gridPad}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              startRefreshAnim();
-              load().finally(() => stopRefreshAnim());
-            }}
-            tintColor={COLORS.cyan}
-            colors={[COLORS.cyan]}
-            progressBackgroundColor="#0e0e14"
-          />
-        }
-        ListHeaderComponent={
-          <View style={styles.listHeader}>
-            <Text style={styles.sectionTitle}>
-              {activeCat === 'all' ? 'Latest' : activeCat}
-            </Text>
-          </View>
-        }
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="film-outline" size={56} color="rgba(255,255,255,0.08)" />
-            <Text style={styles.emptyTxt}>No results found</Text>
-          </View>
-        }
-        ListFooterComponent={
-          hasMore ? (
-            <TouchableOpacity style={styles.moreBtn} onPress={loadMore}>
-              <LinearGradient
-                colors={['rgba(0,229,255,0.10)', 'rgba(0,229,255,0.03)']}
-                style={StyleSheet.absoluteFillObject}
-                borderRadius={50}
-              />
-              <Ionicons name="chevron-down" size={16} color={COLORS.cyan} />
-              <Text style={styles.moreTxt}>Load More</Text>
-            </TouchableOpacity>
-          ) : null
-        }
-        renderItem={({ item }) => (
-          <MovieCard movie={item} onPress={openModal} show18={show18} />
-        )}
-      />
-
-      {/* ── MODAL ── */}
       <MovieModal
-        movie={selMovie}
         visible={modalVisible}
-        onClose={() => setModalVisible(false)}
+        movie={selMovie}
         settings={settings}
+        onClose={() => { setModalVisible(false); setSelMovie(null); }}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.bg },
-  center: {
-    flex: 1, backgroundColor: COLORS.bg,
-    alignItems: 'center', justifyContent: 'center', padding: 30,
-  },
-  errTitle: { color: COLORS.white, fontSize: 20, fontWeight: '800', marginTop: 16 },
-  errSub:   { color: COLORS.gray,  fontSize: 13, marginTop: 8, textAlign: 'center', lineHeight: 20 },
-  retryBtn: {
-    marginTop: 24, backgroundColor: COLORS.cyan,
-    paddingHorizontal: 32, paddingVertical: 12, borderRadius: 30,
-  },
-  retryTxt: { color: '#000', fontWeight: '800', fontSize: 14 },
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 14, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
-    gap: 8,
-    backgroundColor: '#06060b',
-  },
-  logoTxt: {
-    color: COLORS.cyan, fontSize: 19, fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  adultBadge: {
-    backgroundColor: '#f43f5e',
-    paddingHorizontal: 7, paddingVertical: 2,
-    borderRadius: 6,
-  },
-  adultBadgeTxt: { color: '#fff', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 },
-  searchBox: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 50, borderWidth: 1.5,
-    borderColor: 'rgba(0,229,255,0.20)',
-    paddingHorizontal: 16, height: 44,
-    width: 200,
-  },
-  searchInput: { flex: 1, color: '#fff', fontSize: 14, paddingVertical: 0 },
-  suggBox: {
-    position: 'absolute', top: 60, left: 14, right: 14,
-    backgroundColor: '#13131e',
-    borderRadius: 16, borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    zIndex: 999, elevation: 18,
-    shadowColor: '#000', shadowOpacity: 0.7, shadowRadius: 16,
-    overflow: 'hidden',
-  },
-  suggRow: {
-    flexDirection: 'row', alignItems: 'center',
-    gap: 12, padding: 10,
-  },
-  suggBorder: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  suggImg:   { width: 36, height: 52, borderRadius: 6, backgroundColor: '#222' },
-  suggName:  { color: '#fff', fontSize: 13, fontWeight: '600', maxWidth: width - 130 },
-  suggPill: {
-    backgroundColor: COLORS.cyan, paddingHorizontal: 8, paddingVertical: 2,
-    borderRadius: 8, alignSelf: 'flex-start', marginTop: 4,
-  },
-  suggPillTxt: { color: '#000', fontSize: 9, fontWeight: '800' },
-  ticker: {
-    backgroundColor: '#07070e',
-    borderBottomWidth: 1, borderBottomColor: 'rgba(0,229,255,0.07)',
-    paddingVertical: 7, overflow: 'hidden', height: 32,
-  },
-  tickerTxt: { color: COLORS.cyan, fontSize: 11.5, fontWeight: '600' },
-  catScroll:  { flexShrink: 0 },
-  catContent: {
-    paddingHorizontal: 14, paddingVertical: 10,
-    gap: 8, alignItems: 'center',
-  },
-  catChip: {
-    paddingHorizontal: 16, paddingVertical: 7,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 50, overflow: 'hidden',
-  },
-  catChipOn: { backgroundColor: COLORS.cyan, borderColor: COLORS.cyan },
-  catTxt:    { color: 'rgba(255,255,255,0.40)', fontSize: 12, fontWeight: '600' },
-  catTxtOn:  { color: '#000', fontWeight: '800' },
-  gridPad: { paddingHorizontal: 14, paddingBottom: 40 },
-  row:     { justifyContent: 'space-between' },
-  listHeader: { marginBottom: 10, marginTop: 8 },
-  sectionTitle: {
-    color: COLORS.white, fontSize: 17, fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  empty: {
-    alignItems: 'center', justifyContent: 'center',
-    padding: 60, gap: 12,
-  },
-  emptyTxt: { color: 'rgba(255,255,255,0.18)', fontSize: 15, fontWeight: '600' },
-  moreBtn: {
-    flexDirection: 'row',
-    alignSelf: 'center',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1, borderColor: 'rgba(0,229,255,0.20)',
-    paddingVertical: 12, paddingHorizontal: 36,
-    borderRadius: 50, marginVertical: 20,
-    overflow: 'hidden',
-  },
-  moreTxt: { color: COLORS.cyan, fontWeight: '700', fontSize: 13 },
+const s = StyleSheet.create({
+  root:    { flex: 1, backgroundColor: BG },
+
+  // Header
+  header:  { backgroundColor: BG, borderBottomWidth: 1, borderBottomColor: BORDER, paddingHorizontal: 14, paddingBottom: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerLogo: { width: 32, height: 32, borderRadius: 8 },
+  headerName: { fontSize: 20, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
+  searchBox:  { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 10, paddingHorizontal: 12, height: 38 },
+  searchInput: { flex: 1, color: '#fff', fontSize: 13, padding: 0 },
+
+  // Ticker
+  ticker:     { backgroundColor: BG1, borderBottomWidth: 1, borderBottomColor: 'rgba(0,242,255,0.15)', paddingVertical: 9, overflow: 'hidden' },
+  tickerText: { color: CYAN, fontSize: 13, fontWeight: '600', whiteSpace: 'nowrap' },
+
+  // Action buttons
+  btnRow:    { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingVertical: 12 },
+  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 11, borderRadius: 10, borderWidth: 1 },
+  actionBtnTxt: { fontSize: 12, fontWeight: '700' },
+  btnTg:    { backgroundColor: 'rgba(0,242,255,0.04)', borderColor: 'rgba(0,242,255,0.3)' },
+  btnReq:   { backgroundColor: 'rgba(167,139,250,0.06)', borderColor: 'rgba(167,139,250,0.3)' },
+  btn18:    { backgroundColor: 'rgba(255,0,89,0.05)', borderColor: 'rgba(255,0,89,0.3)' },
+  btn18On:  { backgroundColor: 'rgba(0,255,145,0.08)', borderColor: '#00ff91' },
+
+  // Popular slider
+  sliderSection: { marginBottom: 14 },
+  sliderHdr:     { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, marginBottom: 10 },
+  sliderTitle:   { fontSize: 15, fontWeight: '800', color: '#fff' },
+  popularCard:   { width: 85, alignItems: 'center', gap: 5 },
+  popularImg:    { width: 85, height: 120, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  popularName:   { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.7)', textAlign: 'center', width: 85 },
+
+  // Categories
+  catScroll: { paddingHorizontal: 14, paddingBottom: 12, gap: 7 },
+  chip:      { paddingHorizontal: 16, paddingVertical: 7, backgroundColor: BG1, borderWidth: 1, borderColor: '#222', borderRadius: 8 },
+  chipActive: { backgroundColor: CYAN, borderColor: CYAN },
+  chipTxt:   { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.7)' },
+  chipTxtActive: { color: '#000', fontWeight: '800' },
+
+  // Suggestions
+  suggBox:  { position: 'absolute', top: 0, left: 14, right: 14, backgroundColor: '#111', borderWidth: 1, borderColor: '#222', borderRadius: 12, zIndex: 999, elevation: 10, overflow: 'hidden' },
+  suggItem: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 10, borderBottomWidth: 1, borderBottomColor: '#1a1a1a' },
+  suggImg:  { width: 32, height: 46, borderRadius: 5, objectFit: 'cover' },
+  suggName: { fontSize: 13, fontWeight: '600', color: '#fff' },
+  suggBadge:{ marginTop: 3 },
+  suggType: { fontSize: 10, fontWeight: '800', backgroundColor: CYAN, color: '#000', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 10, alignSelf: 'flex-start' },
+
+  // Section
+  sectionHdr:   { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, marginBottom: 12, marginTop: 4 },
+  titleBar:     { width: 4, height: 18, borderRadius: 2, backgroundColor: CYAN, marginRight: 8, shadowColor: CYAN, shadowOpacity: 0.8, shadowRadius: 4 },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: '#fff' },
+
+  // Grid
+  listContent: { paddingHorizontal: 14 },
+  colWrap:     { justifyContent: 'space-between', marginBottom: 12 },
+
+  // Load more
+  loadMoreBtn: { margin: 20, marginHorizontal: 60, paddingVertical: 14, backgroundColor: BG2, borderWidth: 1, borderColor: '#222', borderRadius: 10, alignItems: 'center' },
+  loadMoreTxt: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  // Error
+  errBox:    { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: BG, gap: 16 },
+  errTxt:    { color: 'rgba(255,255,255,0.6)', fontSize: 16 },
+  retryBtn:  { paddingHorizontal: 32, paddingVertical: 12, backgroundColor: CYAN, borderRadius: 30 },
+  retryTxt:  { color: '#000', fontWeight: '800', fontSize: 14 },
 });

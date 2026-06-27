@@ -1,208 +1,47 @@
-import React, { useRef, useEffect } from 'react';
+import React from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet,
-  Animated,
+  View, Text, TouchableOpacity, StyleSheet, Dimensions, Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Linking } from 'react-native';
-import { COLORS } from '../utils/constants';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const TABS = [
-  {
-    key: 'home',
-    label: 'Home',
-    icon: 'home',
-    iconOff: 'home-outline',
-    type: 'tab',
-    color: COLORS.cyan,
-  },
-  {
-    key: 'request',
-    label: 'Request',
-    icon: 'add-circle',
-    iconOff: 'add-circle-outline',
-    type: 'link',
-    urlKey: 'requestUrl',   // settings থেকে url নেওয়া হবে
-    color: '#a855f7',
-  },
-  {
-    key: 'telegram',
-    label: 'Telegram',
-    icon: 'paper-plane',
-    iconOff: 'paper-plane-outline',
-    type: 'link',
-    urlKey: 'telegramUrl',  // settings থেকে url নেওয়া হবে
-    color: '#2AABEE',
-  },
-  {
-    key: 'toggle18',
-    label: 'Show 18+',
-    labelOn: 'Hide 18+',
-    icon: 'eye',
-    iconOff: 'eye-off-outline',
-    type: 'toggle',
-    color: '#f43f5e',
-    colorOn: '#10b981',
-  },
-];
+const CYAN = '#00f2ff';
 
-function TabItem({ tab, active, isOn, onPress }) {
-  const scale  = useRef(new Animated.Value(1)).current;
-  const dotOp  = useRef(new Animated.Value(active ? 1 : 0)).current;
+export default function BottomNav({ settings = {} }) {
+  const insets = useSafeAreaInsets();
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: (active || isOn) ? 1.13 : 1,
-        tension: 90, friction: 6,
-        useNativeDriver: true,
-      }),
-      Animated.timing(dotOp, {
-        toValue: active ? 1 : 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [active, isOn]);
+  const telegramUrl = settings.telegramUrl || 'https://t.me/movieden';
+  const requestUrl  = settings.requestUrl  || 'https://movieden.app/';
 
-  const isLink   = tab.type === 'link';
-  const isToggle = tab.type === 'toggle';
-  const isTab    = tab.type === 'tab';
-
-  const activeColor = isToggle
-    ? (isOn ? tab.colorOn : tab.color)
-    : tab.color;
-
-  const iconColor = (active || isOn)
-    ? activeColor
-    : 'rgba(255,255,255,0.32)';
-
-  const iconName = (() => {
-    if (isToggle) return isOn ? tab.icon : tab.iconOff;
-    if (isTab)    return active ? tab.icon : tab.iconOff;
-    return tab.iconOff;
-  })();
-
-  const labelText = isToggle
-    ? (isOn ? tab.labelOn : tab.label)
-    : tab.label;
-
-  const bgColors = (active || isOn)
-    ? [`${activeColor}28`, `${activeColor}08`]
-    : ['transparent', 'transparent'];
+  const openTelegram = () => Linking.openURL(telegramUrl).catch(() => {});
+  const openRequest  = () => Linking.openURL(requestUrl).catch(() => {});
 
   return (
-    <TouchableOpacity style={styles.tab} onPress={onPress} activeOpacity={0.75}>
-      <Animated.View style={[styles.tabInner, { transform: [{ scale }] }]}>
-        <LinearGradient colors={bgColors} style={styles.activeBg} />
-
-        {(active || isOn) && (
-          <View style={[styles.topBar, { backgroundColor: activeColor }]} />
-        )}
-
-        <Ionicons name={iconName} size={22} color={iconColor} />
-
-        <Text style={[
-          styles.tabLabel,
-          (active || isOn) && { color: activeColor },
-        ]}>
-          {labelText}
-        </Text>
-
-        {isTab && (
-          <Animated.View style={[styles.dot, { opacity: dotOp, backgroundColor: activeColor }]} />
-        )}
-      </Animated.View>
-    </TouchableOpacity>
-  );
-}
-
-// settings prop — AppSettings context থেকে পাস করা হবে
-export default function BottomNav({ activeTab, onTabChange, show18, onToggle18, settings = {} }) {
-  const handlePress = (tab) => {
-    if (tab.type === 'link') {
-      // urlKey দিয়ে settings থেকে URL নেওয়া, fallback hardcoded
-      const url = settings[tab.urlKey] || '';
-      if (url) Linking.openURL(url);
-      return;
-    }
-    if (tab.type === 'toggle') { onToggle18(); return; }
-    onTabChange(tab.key);
-  };
-
-  return (
-    <View style={styles.container}>
-      <View style={styles.nav}>
-        {TABS.map(tab => (
-          <TabItem
-            key={tab.key}
-            tab={tab}
-            active={activeTab === tab.key}
-            isOn={tab.type === 'toggle' ? show18 : false}
-            onPress={() => handlePress(tab)}
-          />
-        ))}
-      </View>
+    <View style={[s.nav, { paddingBottom: insets.bottom + 6 }]}>
+      <TouchableOpacity style={s.item} onPress={() => {}} activeOpacity={0.8}>
+        <Ionicons name="search" size={22} color={CYAN} />
+        <Text style={[s.lbl, { color: CYAN }]}>Search</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={s.item} onPress={openRequest} activeOpacity={0.8}>
+        <Ionicons name="add-circle-outline" size={22} color="rgba(255,255,255,0.45)" />
+        <Text style={s.lbl}>Request</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={s.item} onPress={openTelegram} activeOpacity={0.8}>
+        <Ionicons name="paper-plane-outline" size={22} color="rgba(255,255,255,0.45)" />
+        <Text style={s.lbl}>Telegram</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: '#06060a',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
-    shadowColor: COLORS.cyan,
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 18,
-  },
+const s = StyleSheet.create({
   nav: {
-    flexDirection: 'row',
-    paddingTop: 6,
-    paddingBottom: 8,
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(3,3,3,0.97)',
+    borderTopWidth: 1, borderTopColor: 'rgba(0,242,255,0.12)',
+    flexDirection: 'row', justifyContent: 'space-around',
+    paddingTop: 8,
   },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  tabInner: {
-    alignItems: 'center',
-    gap: 3,
-    paddingVertical: 7,
-    paddingHorizontal: 8,
-    borderRadius: 16,
-    overflow: 'hidden',
-    position: 'relative',
-    minWidth: 64,
-  },
-  activeBg: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 16,
-  },
-  topBar: {
-    position: 'absolute',
-    top: 0,
-    left: '20%',
-    right: '20%',
-    height: 2.5,
-    borderBottomLeftRadius: 4,
-    borderBottomRightRadius: 4,
-    borderRadius: 2,
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.30)',
-    letterSpacing: 0.1,
-  },
-  dot: {
-    position: 'absolute',
-    bottom: 3,
-    width: 3,
-    height: 3,
-    borderRadius: 2,
-  },
+  item: { alignItems: 'center', gap: 3, paddingHorizontal: 20, paddingVertical: 4 },
+  lbl:  { color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '600' },
 });
